@@ -6,12 +6,12 @@
 #estabilidad <- bootnet::bootnet(red_dicotomica, nBoots = 1000, type = "nonparametric", nCores = 16)
 
 saveRDS(estabilidad, file = "psy_net_recidivism_files/estabilidad_bootnet.rds")
-estabilidad <- readRDS("estabilidad_bootnet.rds")
+estabilidad_2 <- readRDS("psy_net_recidivism_files/estabilidad_bootnet.rds")
 
 plot(estabilidad)
 
 # Extraemos la información de estabilidad de edges
-edges_stability <- as.data.frame(estabilidad$bootTable)
+edges_stability <- as.data.frame(estabilidad_2$bootTable)
 
 edges_filtered <- dplyr::filter(edges_stability, type == "edge")
 
@@ -43,7 +43,7 @@ edges_summary <- edges_summary %>%
     )
   )
 
-write.csv(edges_summary, paste0(aqui,"/pape/ising/estabilidad_edges_modelo_general.csv"))
+#write.csv(edges_summary, paste0(aqui,"/pape/ising/estabilidad_edges_modelo_general.csv"))
 
 conexiones_estables <- edges_summary %>%
   filter(rank_avg < 100, variability < 50)
