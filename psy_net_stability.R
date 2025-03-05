@@ -3,7 +3,11 @@
 ######################################################
 
 #vamos a mirar la estabilidad de las estimaciones hechas de los valores de los links  para robustez.
-estabilidad <- bootnet::bootnet(red_dicotomica, nBoots = 1000, type = "nonparametric", nCores = 5)
+#estabilidad <- bootnet::bootnet(red_dicotomica, nBoots = 1000, type = "nonparametric", nCores = 16)
+
+saveRDS(estabilidad, file = "psy_net_recidivism_files/estabilidad_bootnet.rds")
+estabilidad <- readRDS("estabilidad_bootnet.rds")
+
 plot(estabilidad)
 
 # Extraemos la información de estabilidad de edges
