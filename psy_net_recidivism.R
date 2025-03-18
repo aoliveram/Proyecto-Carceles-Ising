@@ -710,7 +710,7 @@ plot(clust_hier)
 #heights <- sort(clust_hier$height, decreasing = TRUE)
 #largest_gap <- max(diff(heights))
 #threshold <- heights[which(diff(heights) == largest_gap)]
-abline(h = 3, col = "red")
+abline(h = 1.75, col = "red")
 dev.off() 
 
 # Elbow Method (Within-Cluster Sum of Squares)
@@ -737,7 +737,12 @@ png("psy_net_recidivism_plots/method_gap.png", width = 800, height = 600)
 make_cluster <- function(x, k) {
   list(cluster = cutree(hclust(dist(x), method = "ward.D2"), k = k))
 }
-gap_stat <- clusGap(as.matrix(sub_bloque_items), FUN = make_cluster, K.max = 10, B = 100)
+gap_stat <- clusGap(
+  as.matrix(sub_bloque_items), 
+  FUN = make_cluster, 
+  K.max = 10, 
+  B = 100 # number of Monte Carlo (“bootstrap”) samples
+)
 plot(gap_stat) # (the “1-SE rule”) optimal is chosen as the smallest k  where `Gap_k`
 grid()         # is within one standard error of the maximum value. k=5 in this case.
 # The optimal number of clusters is the smallest k such that: 
