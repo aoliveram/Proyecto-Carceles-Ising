@@ -124,7 +124,7 @@ library(dplyr)
 base_igi <- base_igi %>%
   filter(across(all_of(descriptivo_grupal), ~ !is.na(.)))
 
-base_ptje <- recode_variables_ptje(base_igi)
+base_ptje <- recode_variables_ptje(base_igi) # creación base_PTJE  !!!
 
 # PUNTAJES DE LA MUESTRA ---
 
@@ -287,11 +287,19 @@ ggplot(base_proporciones_df, aes(x = as.numeric(as.character(PuntajeTotal)), y =
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   geom_vline(xintercept = risk_category_breaks, color = "gold", size = 0.5, linetype = "dashed")  # Líneas verticales
 
+# Guardamos data.frame ya procesado para cargarlo en Ising
+
+write.csv(base_igi, "psy_net_recidivism_files/base_igi_ising.csv", row.names = FALSE)
+write.csv(base_ptje, "psy_net_recidivism_files/base_ptje_ising.csv", row.names = FALSE)
 
 # ------------------------------------------------------------------------------
 # Modelo de Ising - correlación condicionando el resto de variables
 # ------------------------------------------------------------------------------
 
+# Cargamos datos procesados
+
+base_igi <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
+base_ptje <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
 
 # NOTA: Aquí hicimos un Ising apegado al estándar de valores 1 y -1. 
 # No obstante, en etapas posteriores esto generaba errores para algunos cálculos que 
@@ -317,7 +325,7 @@ base_ising <- convert_zeros_to_neg1(base_igi_ising, descriptivo_grupal)
 #require(bootnet)
 #require(qgraph)
 #require(psychonetrics)
-install.packages("bootnet")
+#install.packages("bootnet")
 library(bootnet)
 
 red_dicotomica <- bootnet::estimateNetwork(base_ising, 
@@ -332,7 +340,7 @@ red_dicotomica$graph  # Matriz de adyacencia
 red_dicotomica$thresholds
 #write.csv(red_dicotomica$graph, paste0(aqui,"/pape/ising/matriz_red.csv"))
 
-png("pape/red_base_igi.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_base_igi.png", width = 1000, height = 1000)
 qgraph(red_dicotomica$graph, layout = "spring", labels = colnames(red_dicotomica$graph))
 dev.off()
 
@@ -348,7 +356,7 @@ red_dicotomica_2 <- bootnet::estimateNetwork(base_ising_2,
                                              tuning = 0.25,
                                              labels = descriptivo_grupal)
 
-png("pape/red_base_ptje.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_base_ptje.png", width = 1000, height = 1000)
 qgraph(red_dicotomica_2$graph, layout = "spring", labels = colnames(red_dicotomica_2$graph))
 dev.off()
 
@@ -376,7 +384,11 @@ comunidades_tabla <- as.data.frame(comunidades_tabla)
 comunidades_tabla <- comunidades_tabla[order(comunidades_tabla$V2),]
 comunidades_tabla
 
-# FALTA LO DE ESTABILIDAD
+# ------------------------------------------------------------------------------
+# Estabilidad - ver psy_net_stability.R
+# ------------------------------------------------------------------------------
+
+# \\~\\
 
 # ------------------------------------------------------------------------------
 # Análisis psicométricos diferenciados por Rangos de Riesgo  
@@ -465,17 +477,17 @@ matriz_pesos_alto <- red_alto$graph
 
 
 # Generarmos los grafos con qgraph para inspección visual de las diferencias
-png("pape/red_criteriofijo_bajo.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_criteriofijo_bajo.png", width = 1000, height = 1000)
 #red_criteriofijo_bajo <- qgraph(matriz_pesos_bajo, layout = "spring", title = "Riesgo Bajo")
 qgraph(matriz_pesos_bajo, layout = "spring", title = "Riesgo Bajo")
 dev.off()
 layout_eganet <- red_criteriofijo_bajo$layout
 
-png("pape/red_criteriofijo_medio.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_criteriofijo_medio.png", width = 1000, height = 1000)
 qgraph(matriz_pesos_medio, layout = layout_eganet, title = "Riesgo Medio")
 dev.off()
 
-png("pape/red_criteriofijo_alto.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_criteriofijo_alto.png", width = 1000, height = 1000)
 qgraph(matriz_pesos_alto, layout = layout_eganet, title = "Riesgo Alto")
 dev.off()
 
@@ -510,17 +522,17 @@ matriz_pesos_bajo_2 <- red_bajo_2$graph
 matriz_pesos_medio_2 <- red_intermedio_2$graph
 matriz_pesos_alto_2 <- red_alto_2$graph
 
-png("pape/red_criteriofijo_bajo_2.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_criteriofijo_bajo_2.png", width = 1000, height = 1000)
 #red_criteriofijo_bajo <- qgraph(matriz_pesos_bajo, layout = "spring", title = "Riesgo Bajo")
 qgraph(matriz_pesos_bajo_2, layout = layout_eganet, title = "Riesgo Bajo")
 dev.off()
 #layout_eganet <- red_criteriofijo_bajo$layout
 
-png("pape/red_criteriofijo_medio_2.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_criteriofijo_medio_2.png", width = 1000, height = 1000)
 qgraph(matriz_pesos_medio_2, layout = layout_eganet, title = "Riesgo Medio")
 dev.off()
 
-png("pape/red_criteriofijo_alto_2.png", width = 1000, height = 1000)
+png("psy_net_recidivism_plots/red_criteriofijo_alto_2.png", width = 1000, height = 1000)
 qgraph(matriz_pesos_alto_2, layout = layout_eganet, title = "Riesgo Alto")
 dev.off()
 
@@ -588,17 +600,16 @@ inicios_ventana <- 0:(max_puntaje_observado - window_size + 1)
 for (start_val in inicios_ventana) {
   
   # (a) Determinamos el rango de la ventana
-  end_val <- start_val + window_size - 5
+  end_val <- start_val + window_size - 5  #  --->>> ¿por qué -5 y no -1?
   rango_puntaje <- start_val:end_val
   
-  # (b) Filtramos la base             -->> usamos ¿¿ base_igi ??
+  # (b) Filtramos la base por puntaje         -->> usamos ¿¿ base_igi ??
   sub_bloque <- base_igi %>%
     dplyr::filter(puntaje_total %in% rango_puntaje)
   
   # Revisamos que sub_bloque tenga suficientes observaciones para clusterizar
   if (nrow(sub_bloque) < 50) {
-    # Evitemos problemas si el grupo es muy pequeño. .
-    next
+    next # Evitemos problemas si el grupo es muy pequeño. .
   }
   
   # (c) Seleccionamos las variables de interés
@@ -606,8 +617,8 @@ for (start_val in inicios_ventana) {
   
   # (d) Hacemos el Cluster analysis (distancia Jaccard y Ward.D2)
   matriz_binaria <- as.matrix(sub_bloque_items)
-  distancias <- dist(matriz_binaria, method = "binary")
-  clust_hier <- hclust(distancias, method = "ward.D2")
+  distancias <- dist(matriz_binaria, method = "binary") # d= 1 - shared_1's/tatal_1's
+  clust_hier <- hclust(distancias, method = "ward.D2") # squared Euclidean distancesthe, only to call hclust()
   
   # (e) Cortamos en k clusters.
   # Aquí usamos un cluster jerarquico. Hay que darle una vuelta a si usamos algún 
@@ -690,6 +701,53 @@ for (start_val in inicios_ventana) {
     )
   }
 }
+
+# --- Revisión objeto clust_hier (rango puntaje 32 33 34 35 36 37 - 'el último clust_hier generado')
+
+# Inspecting the Dendrogram
+png("psy_net_recidivism_plots/method_dendrogram.png", width = 800, height = 600)
+plot(clust_hier)
+#heights <- sort(clust_hier$height, decreasing = TRUE)
+#largest_gap <- max(diff(heights))
+#threshold <- heights[which(diff(heights) == largest_gap)]
+abline(h = 3, col = "red")
+dev.off() 
+
+# Elbow Method (Within-Cluster Sum of Squares)
+png("psy_net_recidivism_plots/method_elbow.png", width = 800, height = 600)
+wss <- sapply(1:10, function(k) { 
+  sum(cutree(clust_hier, k = k)^2)
+})
+plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "WSS") # “elbow” in the curve
+dev.off()
+
+# Silhouette Method
+library(cluster)
+png("psy_net_recidivism_plots/method_silhouette.png", width = 800, height = 600)
+silhouette_scores <- sapply(2:10, function(k) {
+  mean(silhouette(cutree(clust_hier, k = k), distancias)[, 3])
+})
+plot(2:10, silhouette_scores, type = "b", xlab = "Number of Clusters", ylab = "Average Silhouette Width")
+optimal_k <- which.max(silhouette_scores)
+dev.off()
+
+# Gap Statistic (To_Do : Lento - optimizar !!!! )
+library(cluster)
+png("psy_net_recidivism_plots/method_gap.png", width = 800, height = 600)
+make_cluster <- function(x, k) {
+  list(cluster = cutree(hclust(dist(x), method = "ward.D2"), k = k))
+}
+gap_stat <- clusGap(as.matrix(sub_bloque_items), FUN = make_cluster, K.max = 10, B = 100)
+plot(gap_stat) # (the “1-SE rule”) optimal is chosen as the smallest k  where `Gap_k`
+grid()         # is within one standard error of the maximum value. k=5 in this case.
+# The optimal number of clusters is the smallest k such that: 
+# Gap(k) ≥ Gap(k+1) - s_{k+1}. 
+# Where s_{k+1} is the standard error of Gap(k+1)
+dev.off()
+
+
+# --- Fin revisión
+
 
 # 4. Al terminar el bucle, revisamos los resultados ---
 
