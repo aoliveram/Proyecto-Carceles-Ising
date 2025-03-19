@@ -21,7 +21,7 @@ Thumbs.db
 *.feather
 
 # Carpetas específicas para ignorar
-Papers/
+Papers - Notas/
 Documentos Carceles - Ising/
 
 # Ignorar todas las carpetas con un nombre específico en cualquier lugar del proyecto
