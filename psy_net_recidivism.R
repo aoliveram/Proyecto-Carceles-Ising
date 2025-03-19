@@ -618,7 +618,7 @@ for (start_val in inicios_ventana) {
   # (d) Hacemos el Cluster analysis (distancia Jaccard y Ward.D2)
   matriz_binaria <- as.matrix(sub_bloque_items)
   distancias <- dist(matriz_binaria, method = "binary") # d= 1 - shared_1's/tatal_1's
-  clust_hier <- hclust(distancias, method = "ward.D2") # squared Euclidean distancesthe, only to call hclust()
+  clust_hier <- hclust(distancias, method = "ward.D2") # squared Euclidean distances. To call hclust()
   
   # (e) Cortamos en k clusters.
   # Aquí usamos un cluster jerarquico. Hay que darle una vuelta a si usamos algún 
@@ -741,7 +741,8 @@ gap_stat <- clusGap(
   as.matrix(sub_bloque_items), 
   FUN = make_cluster, 
   K.max = 10, 
-  B = 100 # number of Monte Carlo (“bootstrap”) samples
+  B = 100, # number of Monte Carlo (“bootstrap”) samples
+  spaceH0 = "scaledPCA" # second choice from Tibshirani 2001, pag 414.
 )
 plot(gap_stat) # (the “1-SE rule”) optimal is chosen as the smallest k  where `Gap_k`
 grid()         # is within one standard error of the maximum value. k=5 in this case.
