@@ -2,6 +2,48 @@ library(bootnet)
 library(qgraph)
 library(dplyr)
 
+# Este código debe tener una parte para estimar el óptimo en una parte del loop.
+# Ese código es optimal_k_estimate.R
+# Todo lo que está antes es simplemente para cargar los datos y procesarlos.
+# Esto ya no sería necesario con:
+
+# Cargamos datos procesados
+
+base_igi <- read.csv("psy_net_recidivism_files/base_igi.csv")
+base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin.csv")
+base_igi_bin_ising <- read.csv("psy_net_recidivism_files/base_igi_bin_ising.csv")
+
+verificar_binario <- function(data) {
+  # Vemos que solo hayan 0's y 1's
+  columnas_invalidas <- data %>%
+    summarise(across(everything(), ~ list(setdiff(unique(.), c(0, 1))))) %>%
+    pivot_longer(everything(), names_to = "columna", values_to = "valores_invalidos") %>%
+    filter(lengths(valores_invalidos) > 0)  # Filtrar columnas con valores fuera de {0,1}
+  
+  if (nrow(columnas_invalidas) > 0) {
+    # Vemos si tiene valores inválidos y cuáles son
+    columnas_invalidas %>%
+      rowwise() %>%
+      mutate(valores_invalidos = paste(unlist(valores_invalidos), collapse = ", ")) %>%
+      print()
+  } else {
+    print("Solo hay 0's y 1's en las columnas seleccionadas.")
+  }
+}
+
+descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
+                        "EDU9","EDU10","EDU11","EDU12","EDU13","EDU14","EDU15","EDU16","EDU17",
+                        "FAM18","FAM19","FAM20","FAM21",
+                        "UTL22","UTL23",
+                        "PAR24","PAR25","PAR26","PAR27",
+                        "CAD28","CAD29","CAD30","CAD31","CAD32","CAD33","CAD34","CAD35",
+                        "PRO36","PRO37","PRO38","PRO39",
+                        "PAT40","PAT41","PAT42","PAT43")
+
+verificar_binario(base_igi[,descriptivo_grupal])
+verificar_binario(base_igi_bin[,descriptivo_grupal])
+verificar_binario(base_igi_bin_ising)
+
 # ------------------------------------------------------------------------------
 # Modelo de Ising - correlación condicionando el resto de variables
 # ------------------------------------------------------------------------------
