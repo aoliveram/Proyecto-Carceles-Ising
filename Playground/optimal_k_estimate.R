@@ -1,26 +1,33 @@
+install.packages("DiscreteGapStatistic")
+library(DiscreteGapStatistic)
+library(cluster)
+
+?clusGapDiscr0
+
 # Discrete application of clusGap
 
-cG_obj <- clusGapDiscr0 (
-    x = sub_bloque_items,
-    FUNcluster = cluster::pam,
-    K.max = 8,
-    B = 100, # default B=nrow(x)
-    value.range = "DS", # vector with all categories. DS: Data Support option
-    verbose = interactive(), # progress output
-    distName = "hamming", # recomendado para binario
-    useLog = TRUE, # Use log function after estimating `W.k`
-    Input2Alg = 'distMatr' # input for FUNcluster
-)
+# cG_obj <- clusGapDiscr0 (
+#     x = sub_bloque_items,
+#     FUNcluster = cluster::pam,
+#     K.max = 8,
+#     B = 100, # default B=nrow(x)
+#     value.range = "DS", # vector with all categories. DS: Data Support option
+#     verbose = interactive(), # progress output
+#     distName = "hamming", # recomendado para binario
+#     useLog = TRUE, # Use log function after estimating `W.k`
+#     Input2Alg = 'distMatr' # input for FUNcluster
+# )
 
-# cG_obj <- clusGapDiscr(x = sub_bloque_items, 
-#                        clusterFUN = 'pam', 
-#                        K.max = 8, 
-#                        B = 100, # default B=nrow(x)
-#                        value.range = "DS", # vector with all categories. DS: Data Support option
-#                        verbose = interactive(), # progress output
-#                        distName = "hamming", # recomendado para binario
-#                        useLog = TRUE # Use log function after estimating `W.k`
-#                        )
+cG_obj <- clusGapDiscr(
+  x = sub_bloque_items,
+  clusterFUN = 'pam',
+  K.max = 8,
+  B = 100, # default B=nrow(x)
+  value.range = "DS", # vector with all categories. DS: Data Support option
+  verbose = interactive(), # progress output
+  distName = "hamming", # recomendado para binario
+  useLog = TRUE # Use log function after estimating `W.k`
+)
 
 
 # Criteria to determine number of clusters k

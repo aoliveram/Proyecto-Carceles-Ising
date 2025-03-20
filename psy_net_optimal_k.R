@@ -1,6 +1,6 @@
 library(bootnet)
 library(qgraph)
-library(igraph)
+library(dplyr)
 
 # ------------------------------------------------------------------------------
 # Modelo de Ising - correlación condicionando el resto de variables
