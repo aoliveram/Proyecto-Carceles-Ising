@@ -1,6 +1,7 @@
 library(bootnet)
 library(qgraph)
 library(dplyr)
+library(tidyr)
 
 # Este código debe tener una parte para estimar el óptimo en una parte del loop.
 # Ese código es optimal_k_estimate.R
@@ -9,7 +10,7 @@ library(dplyr)
 
 # Cargamos datos procesados
 
-base_igi <- read.csv("psy_net_recidivism_files/base_igi.csv")
+#base_igi <- read.csv("psy_net_recidivism_files/base_igi.csv")
 base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin.csv")
 base_igi_bin_ising <- read.csv("psy_net_recidivism_files/base_igi_bin_ising.csv")
 
@@ -40,8 +41,8 @@ descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
                         "PRO36","PRO37","PRO38","PRO39",
                         "PAT40","PAT41","PAT42","PAT43")
 
-verificar_binario(base_igi[,descriptivo_grupal])
-verificar_binario(base_igi_bin[,descriptivo_grupal])
+#verificar_binario(base_igi[,descriptivo_grupal])
+#verificar_binario(base_igi_bin[,descriptivo_grupal])
 verificar_binario(base_igi_bin_ising)
 
 # ------------------------------------------------------------------------------
@@ -50,8 +51,8 @@ verificar_binario(base_igi_bin_ising)
 
 # Cargamos datos procesados
 
-base_igi <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
-base_ptje <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
+#base_igi <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
+#base_ptje <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
 
 # NOTA: Aquí hicimos un Ising apegado al estándar de valores 1 y -1. 
 # No obstante, en etapas posteriores esto generaba errores para algunos cálculos que 
@@ -59,51 +60,14 @@ base_ptje <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
 # Dejamos igual el código para generar una versión con 1s y -1s por si eventualmente cambianos nuevamente. 
 
 # Convertimos los valores 0 en valore -1 en todas las variables. 
-convert_zeros_to_neg1 <- function(df, var_names) { # Iteramos por cada nombre de variable 
-  for (col in var_names) { # Verificamos que la columna exista en el data frame 
-    if (col %in% names(df)) { # Reemplazamos los valores 0 por -1 
-      df[[col]][df[[col]] == 0] <- 0 } 
-    else { warning(paste("La columna", col, "no existe en el data frame.")) } 
-  } 
-  return(df) 
-}
-
-# Cambiamos nombre de variables
-descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
-                        "EDU9","EDU10","EDU11","EDU12","EDU13","EDU14","EDU15","EDU16","EDU17",
-                        "FAM18","FAM19","FAM20","FAM21",
-                        "UTL22","UTL23",
-                        "PAR24","PAR25","PAR26","PAR27",
-                        "CAD28","CAD29","CAD30","CAD31","CAD32","CAD33","CAD34","CAD35",
-                        "PRO36","PRO37","PRO38","PRO39",
-                        "PAT40","PAT41","PAT42","PAT43")
-
-# Seleccionamos variables de interés (LO HARÉ CON BASE_PTJE)
-base_igi_ising_2 <-  base_ptje[,colnames(base_ptje) %in% descriptivo_grupal]
-base_ising_2 <- convert_zeros_to_neg1(base_igi_ising_2, descriptivo_grupal)
-
-# TO_DO: implementar con IsingFit directamente.
-red_dicotomica_2 <- bootnet::estimateNetwork(base_ising_2, 
-                                             default = "IsingFit",
-                                             #principalDirection =T,
-                                             tuning = 0.25,
-                                             labels = descriptivo_grupal)
-
-png("psy_net_recidivism_plots/red_base_igi.png", width = 1000, height = 1000)
-qgraph(red_dicotomica_2$graph, layout = "spring", labels = colnames(red_dicotomica_2$graph))
-dev.off()
-
-# ------------------------------------------------------------------------------
-# Estabilidad - ver psy_net_stability.R
-# ------------------------------------------------------------------------------
-
-# \\~\\
-
-# ------------------------------------------------------------------------------
-# Análisis psicométricos por Rangos de Riesgo  (Analizar después con k adecuado)
-# ------------------------------------------------------------------------------
-
-# \\~\\
+# convert_zeros_to_neg1 <- function(df, var_names) { # Iteramos por cada nombre de variable 
+#   for (col in var_names) { # Verificamos que la columna exista en el data frame 
+#     if (col %in% names(df)) { # Reemplazamos los valores 0 por -1 
+#       df[[col]][df[[col]] == 0] <- 0 } 
+#     else { warning(paste("La columna", col, "no existe en el data frame.")) } 
+#   } 
+#   return(df) 
+# }
 
 # ------------------------------------------------------------------------------
 # Bootnet - Ventana de 10 puntos  
@@ -126,10 +90,11 @@ variables_externas <- c("SEXO", "COD_SALUD_MENTAL", "rangos_edad", "recod_estado
 
 # 2. Definimos parámetros de la ventana ---
 window_size <- 10 # Modificar la ventana para otros ejercicios
-max_puntaje_observado <- max(base_ptje$puntaje_total)  #-->> usamos ¿¿ base_igi ?? base_ptje
+max_puntaje_observado <- max(base_igi_bin$puntaje_total)  #-->> usamos ¿¿ base_igi ?? base_ptje
 inicios_ventana <- 0:(max_puntaje_observado - window_size + 1)
 
 # 3. Bucle principal por ventanas "traslapadas" ---
+time_init <- system.time()
 for (start_val in inicios_ventana) {
   
   # (a) Determinamos el rango de la ventana
@@ -137,7 +102,7 @@ for (start_val in inicios_ventana) {
   rango_puntaje <- start_val:end_val
   
   # (b) Filtramos la base por rango_puntaje  -->> usamos ¿¿ base_igi ?? base_ptje
-  sub_bloque <- base_ptje %>%
+  sub_bloque <- base_igi_bin %>%
     dplyr::filter(puntaje_total %in% rango_puntaje)
   
   # Revisamos que sub_bloque tenga suficientes observaciones para clusterizar
@@ -244,59 +209,14 @@ for (start_val in inicios_ventana) {
     )
   }
 }
+time_fin <- system.time()
+time_total <- time_fin - time_init
 
-# --- Revisión objeto clust_hier (rango puntaje 32 33 34 35 36 37 - 'el último clust_hier generado')
+write.csv(cor_results_sliding, "psy_net_recidivism_files/cor_results_sliding_01.csv", row.names = FALSE)
+write.csv(chi_results_sliding, "psy_net_recidivism_files/chi_results_sliding_01.csv", row.names = FALSE)
 
-# Inspecting the Dendrogram
-png("psy_net_recidivism_plots/method_dendrogram.png", width = 800, height = 600)
-plot(clust_hier)
-#heights <- sort(clust_hier$height, decreasing = TRUE)
-#largest_gap <- max(diff(heights))
-#threshold <- heights[which(diff(heights) == largest_gap)]
-abline(h = 1.75, col = "red")
-dev.off() 
-
-# Elbow Method (Within-Cluster Sum of Squares)
-png("psy_net_recidivism_plots/method_elbow.png", width = 800, height = 600)
-wss <- sapply(1:10, function(k) { 
-  sum(cutree(clust_hier, k = k)^2)
-})
-plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "WSS") # “elbow” in the curve
-dev.off()
-
-# Silhouette Method
-library(cluster)
-png("psy_net_recidivism_plots/method_silhouette.png", width = 800, height = 600)
-silhouette_scores <- sapply(2:10, function(k) {
-  mean(silhouette(cutree(clust_hier, k = k), distancias)[, 3])
-})
-plot(2:10, silhouette_scores, type = "b", xlab = "Number of Clusters", ylab = "Average Silhouette Width")
-optimal_k <- which.max(silhouette_scores)
-dev.off()
-
-# Gap Statistic (To_Do : Lento - optimizar !!!! )
-library(cluster)
-png("psy_net_recidivism_plots/method_gap.png", width = 800, height = 600)
-make_cluster <- function(x, k) {
-  list(cluster = cutree(hclust(dist(x), method = "ward.D2"), k = k))
-}
-gap_stat <- clusGap(
-  as.matrix(sub_bloque_items), 
-  FUN = make_cluster, 
-  K.max = 10, 
-  B = 100, # number of Monte Carlo (“bootstrap”) samples
-  spaceH0 = "scaledPCA" # second choice from Tibshirani 2001, pag 414.
-)
-plot(gap_stat) # (the “1-SE rule”) optimal is chosen as the smallest k  where `Gap_k`
-grid()         # is within one standard error of the maximum value. k=5 in this case.
-# The optimal number of clusters is the smallest k such that: 
-# Gap(k) ≥ Gap(k+1) - s_{k+1}. 
-# Where s_{k+1} is the standard error of Gap(k+1)
-dev.off()
-
-
-# --- Fin revisión
-
+cor_results_sliding <- read.csv("psy_net_recidivism_files/cor_results_sliding_01.csv")
+chi_results_sliding <- read.csv("psy_net_recidivism_files/chi_results_sliding_01.csv")
 
 # 4. Al terminar el bucle, revisamos los resultados ---
 
@@ -309,9 +229,7 @@ chi_results_sliding
 # Tablas de contingencia almacenadas
 names(cross_tables_sliding)  # para ver qué tablas hay
 
-#library(tidyverse)
-library(tidyr)
-
+# Creamos objeto para plot
 cor_long <- cor_results_sliding %>%
   select(min_puntaje, max_puntaje, cor_1_2, cor_1_3, cor_2_3) %>%
   pivot_longer(
@@ -320,14 +238,13 @@ cor_long <- cor_results_sliding %>%
     values_to = "correlacion"
   )
 
-cor_long_b <- cor_long[1:96,]
-
 # EL MISMO PLOT QUE EN PPT
-ggplot(cor_long_b, aes(x = min_puntaje, y = correlacion)) +
+ggplot(cor_long, aes(x = min_puntaje, y = correlacion)) +
   geom_line(color = "blue", size = 1) +
   geom_point(size = 2) +
   facet_wrap(~ clusters_comparados, ncol = 1) +
-  theme_minimal() +
+  theme_minimal() + 
+  ylim(0,1) +
   labs(
     x = "Puntaje mínimo de la ventana",
     y = "Correlación de la red",
@@ -339,25 +256,8 @@ cor_long$clusters_comparados_factor <- factor(
   cor_long$clusters_comparados, 
   levels = c("cor_1_2", "cor_1_3", "cor_2_3")
 )
-cor_long_b$clusters_comparados_factor <- factor(
-  cor_long_b$clusters_comparados, 
-  levels = c("cor_1_2", "cor_1_3", "cor_2_3")
-)
 
 ggplot(cor_long, aes(x = min_puntaje, y = clusters_comparados_factor, fill = correlacion)) +
-  geom_tile(color = "white") +
-  scale_fill_gradient2(
-    low = "red", high = "blue", mid = "white",
-    midpoint = 0.5, limit = c(0,1), space = "Lab",
-    name = "Correlación"
-  ) +
-  theme_minimal() +
-  labs(
-    x = "Puntaje mínimo de la ventana",
-    y = "Par de subclusters",
-    title = "Heatmap de correlaciones de redes entre subclusters"
-  )
-ggplot(cor_long_b, aes(x = min_puntaje, y = clusters_comparados_factor, fill = correlacion)) +
   geom_tile(color = "white") +
   scale_fill_gradient2(
     low = "red", high = "blue", mid = "white",
