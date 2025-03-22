@@ -1,5 +1,6 @@
 # Load required libraries
 library(dplyr)
+library(ggplot2)
 library(bootnet)
 library(cluster) # For silhouette calculation
 library(viridis) # For color scales
@@ -14,6 +15,17 @@ library(qgraph)
 library(igraph)
 
 
+base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin.csv")
+descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
+                        "EDU9","EDU10","EDU11","EDU12","EDU13","EDU14","EDU15","EDU16","EDU17",
+                        "FAM18","FAM19","FAM20","FAM21",
+                        "UTL22","UTL23",
+                        "PAR24","PAR25","PAR26","PAR27",
+                        "CAD28","CAD29","CAD30","CAD31","CAD32","CAD33","CAD34","CAD35",
+                        "PRO36","PRO37","PRO38","PRO39",
+                        "PAT40","PAT41","PAT42","PAT43")
+
+
 # Initialize result containers
 cor_results_sliding <- data.frame()
 chi_results_sliding <- data.frame()
@@ -21,13 +33,6 @@ cross_tables_sliding <- list()
 
 
 # ---------------------
-
-
-# Load required libraries
-library(dplyr)
-library(ggplot2)
-
-
 
 
 # Function to process a single window and evaluate all k values
