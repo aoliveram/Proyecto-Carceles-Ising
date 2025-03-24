@@ -2,7 +2,8 @@ library(bootnet)
 library(qgraph)
 library(dplyr)
 library(tidyr)
-library(EGAnet)
+#install.packages("EGAnet") # Problems on CHPC
+#library(EGAnet)
 
 # Este código debe tener una parte para estimar el óptimo en una parte del loop.
 # Ese código es optimal_k_estimate.R
