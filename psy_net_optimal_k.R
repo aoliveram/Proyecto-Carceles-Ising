@@ -2,6 +2,7 @@ library(bootnet)
 library(qgraph)
 library(dplyr)
 library(tidyr)
+library(EGAnet)
 
 # Este código debe tener una parte para estimar el óptimo en una parte del loop.
 # Ese código es optimal_k_estimate.R
@@ -44,30 +45,6 @@ descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
 #verificar_binario(base_igi[,descriptivo_grupal])
 #verificar_binario(base_igi_bin[,descriptivo_grupal])
 verificar_binario(base_igi_bin_ising)
-
-# ------------------------------------------------------------------------------
-# Modelo de Ising - correlación condicionando el resto de variables
-# ------------------------------------------------------------------------------
-
-# Cargamos datos procesados
-
-#base_igi <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
-#base_ptje <- read.csv("psy_net_recidivism_files/base_igi_ising.csv")
-
-# NOTA: Aquí hicimos un Ising apegado al estándar de valores 1 y -1. 
-# No obstante, en etapas posteriores esto generaba errores para algunos cálculos que 
-# requerían sólo valores positivos, por lo que finalmente lo dejamos con valores 0s y 1s.
-# Dejamos igual el código para generar una versión con 1s y -1s por si eventualmente cambianos nuevamente. 
-
-# Convertimos los valores 0 en valore -1 en todas las variables. 
-# convert_zeros_to_neg1 <- function(df, var_names) { # Iteramos por cada nombre de variable 
-#   for (col in var_names) { # Verificamos que la columna exista en el data frame 
-#     if (col %in% names(df)) { # Reemplazamos los valores 0 por -1 
-#       df[[col]][df[[col]] == 0] <- 0 } 
-#     else { warning(paste("La columna", col, "no existe en el data frame.")) } 
-#   } 
-#   return(df) 
-# }
 
 # ------------------------------------------------------------------------------
 # Bootnet - Ventana de 10 puntos  
@@ -113,16 +90,6 @@ for (start_val in inicios_ventana) {
   # (c) Seleccionamos las variables de interés
   sub_bloque_items <- sub_bloque[, descriptivo_grupal]
   
-  # (d)
-  
-  
-  
-  
-  
-  
-  
-  
-  
   # (d) Hacemos el Cluster analysis (distancia Jaccard y Ward.D2)
   matriz_binaria <- as.matrix(sub_bloque_items)
   distancias <- dist(matriz_binaria, method = "binary") # d= 1 - shared_1's/tatal_1's
@@ -166,6 +133,16 @@ for (start_val in inicios_ventana) {
   correlacion1_2 <- cor(as.vector(edges_1), as.vector(edges_2))
   correlacion1_3 <- cor(as.vector(edges_1), as.vector(edges_3))
   correlacion2_3 <- cor(as.vector(edges_2), as.vector(edges_3))
+  
+  # Evaluate cluster quality (silhouette width: 
+  # close 1: obsv. well clusteres
+  # around 0: obsv. lies between two clusters
+  # negative: placed in the wrong cluster)
+  silhouette_score <- mean(cluster::silhouette(
+    sub_bloque$sub_cluster, distancias)[, "sil_width"])
+  
+  # Calculate composite score (lower is better)
+  composite_score <- (1 - silhouette_score) + mean(c(correlacion1_2,correlacion1_3,correlacion2_3))
   
   # (g) Guardamos las correlaciones y tamaño de clusters en cor_results_sliding
   cor_results_sliding <- rbind(
@@ -349,8 +326,6 @@ dev.off()
 png("psy_net_recidivism_plots/red_criteriofijo_alto_2.png", width = 1000, height = 1000)
 qgraph(matriz_pesos_alto_2, layout = layout_eganet, title = "Riesgo Alto")
 dev.off()
-
-library(EGAnet)
 
 # Veamos ahora si se detectan comunidades diferentes en estas tres redes obtenidas.
 
