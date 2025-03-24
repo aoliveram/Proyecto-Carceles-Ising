@@ -68,7 +68,7 @@ variables_externas <- c("SEXO", "COD_SALUD_MENTAL", "rangos_edad", "recod_estado
 
 # 2. Definimos parámetros de la ventana ---
 window_size <- 10 # Modificar la ventana para otros ejercicios
-max_puntaje_observado <- max(base_igi_bin$puntaje_total)  #-->> usamos ¿¿ base_igi ?? base_ptje
+max_puntaje_observado <- max(base_igi_bin$puntaje_total)  
 inicios_ventana <- 0:(max_puntaje_observado - window_size + 1)
 
 # 3. Bucle principal por ventanas "traslapadas" ---
@@ -76,10 +76,10 @@ time_init <- system.time()
 for (start_val in inicios_ventana) {
   
   # (a) Determinamos el rango de la ventana
-  end_val <- start_val + window_size - 1  #  --->>> ¿por qué -5 y no -1? CAMBIÉ A -1
+  end_val <- start_val + window_size - 1  #  
   rango_puntaje <- start_val:end_val
   
-  # (b) Filtramos la base por rango_puntaje  -->> usamos ¿¿ base_igi ?? base_ptje
+  # (b) Filtramos la base por rango_puntaje  
   sub_bloque <- base_igi_bin %>%
     dplyr::filter(puntaje_total %in% rango_puntaje)
   

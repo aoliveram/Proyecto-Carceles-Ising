@@ -265,6 +265,41 @@ ggplot(results_grid_parallel_all, aes(x = start_val, y = k, fill = composite_sco
   )
 dev.off()
 
+# Comparamos con el original
+
+cor_results_sliding <- read.csv("psy_net_recidivism_files/cor_results_sliding_01.csv")
+
+# Creamos objeto para plot
+cor_long <- cor_results_sliding %>%
+  select(min_puntaje, max_puntaje, cor_1_2, cor_1_3, cor_2_3) %>%
+  pivot_longer(
+    cols = c("cor_1_2", "cor_1_3", "cor_2_3"),
+    names_to = "clusters_comparados",
+    values_to = "correlacion"
+  )
+ggplot(cor_long, aes(x = min_puntaje, y = correlacion)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ clusters_comparados, ncol = 1) +
+  theme_minimal() + 
+  ylim(0,1) +
+  labs(
+    x = "Puntaje mínimo de la ventana",
+    y = "Correlación de la red",
+    title = "Evolución de la correlación entre subclusters según ventana de puntajes"
+  )
+
+png("psy_net_recidivism_plots/optimal_k_cor_original.png", width = 800*1.1, height = 600*1.1/5)
+ggplot(cor_long, aes(x = min_puntaje, y = 3, fill = correlacion)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", direction = -1) +
+  labs(
+    x = "Puntaje mínimo de la ventana",
+    y = "Number of Clusters (k)",
+    fill = "Cor (lower is better)",
+    title = "Evolución de la correlación entre subclusters según ventana de puntajes"
+  )
+dev.off()
 
 ##
 ##
