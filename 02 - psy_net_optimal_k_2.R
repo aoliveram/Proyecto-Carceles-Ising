@@ -2,6 +2,7 @@
 
 library(doParallel)
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(bootnet)
 library(cluster) # For silhouette calculation
@@ -9,7 +10,6 @@ library(viridis) # For color scales
 library(qgraph)
 library(igraph)
 
-base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin.csv")
 descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
                         "EDU9","EDU10","EDU11","EDU12","EDU13","EDU14","EDU15","EDU16","EDU17",
                         "FAM18","FAM19","FAM20","FAM21",
@@ -118,7 +118,9 @@ process_window_parallel <- function(start_val_in, base_igi_bin, descriptivo_grup
   resultados
 }
 
-# --------- COMPLETE BUT DIVIDED IN BLOCKS ------------------
+# -------------------- Formato {3,2,1},{0} -> {0},{1} --------------------------
+
+base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin_1.csv")
 
 # Define parameters
 window_size <- 10 # Size of the sliding window
@@ -140,51 +142,40 @@ start_val_vec = 0:(max(base_igi_bin$puntaje_total) - window_size + 1)
 #   print(paste("start_val:", start_val, ", nrow(sub_bloque):", nrow(sub_bloque)))
 # }
 
-# Set up parallel 
+# -- BY BLOCKS
+
 cl <- makeCluster(12, type = "FORK")  
 registerDoParallel(cl)
 
 time_init <- Sys.time()
-
 results_grid_parallel_1 <- process_window_parallel(start_val_vec[1:10], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
-
 time_fin <- Sys.time()
 time_total_parallel <- difftime(time_fin, time_init, units = "auto") # 3.85 k=2:6
 
 time_init <- Sys.time()
-
 results_grid_parallel_2 <- process_window_parallel(start_val_vec[11:15], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
-
 time_fin <- Sys.time()
 time_total_parallel_2 <- difftime(time_fin, time_init, units = "auto") # 5.14 min
 
 time_init <- Sys.time()
-
 results_grid_parallel_3 <- process_window_parallel(start_val_vec[16:20], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
-
 time_fin <- Sys.time()
 time_total_parallel_3 <- difftime(time_fin, time_init, units = "auto") # 3.98 min
 
 time_init <- Sys.time()
-
 results_grid_parallel_4 <- process_window_parallel(start_val_vec[21:25], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
-
 time_fin <- Sys.time()
 time_total_parallel_4 <- difftime(time_fin, time_init, units = "auto") # 2.3 min
 
 time_init <- Sys.time()
-
 results_grid_parallel_5 <- process_window_parallel(start_val_vec[26:28], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
-
 time_fin <- Sys.time()
 time_total_parallel_5 <- difftime(time_fin, time_init, units = "auto") # 1.8 min
 
-stopCluster(cl)
-
-cl <- makeCluster(12, type = "FORK")  # Uses 6 cores (4P + 4E)
-registerDoParallel(cl)
-
+time_init <- Sys.time()
 results_grid_parallel_6 <- process_window_parallel(start_val_vec[29:30], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel_6
 
 stopCluster(cl)
 
@@ -268,6 +259,7 @@ dev.off()
 # Comparamos con el original
 
 cor_results_sliding <- read.csv("psy_net_recidivism_files/cor_results_sliding_01.csv")
+cor_results_sliding$mean_cor <- rowMeans(cor_results_sliding[, c("cor_1_2", "cor_1_3", "cor_2_3")])
 
 # Creamos objeto para plot
 cor_long <- cor_results_sliding %>%
@@ -290,7 +282,7 @@ ggplot(cor_long, aes(x = min_puntaje, y = correlacion)) +
   )
 
 png("psy_net_recidivism_plots/optimal_k_cor_original.png", width = 800*1.1, height = 600*1.1/5)
-ggplot(cor_long, aes(x = min_puntaje, y = 3, fill = correlacion)) +
+ggplot(cor_results_sliding, aes(x = min_puntaje, y = 3, fill = mean_cor)) +
   geom_tile() +
   scale_fill_viridis_c(option = "plasma", direction = -1) +
   labs(
@@ -300,6 +292,95 @@ ggplot(cor_long, aes(x = min_puntaje, y = 3, fill = correlacion)) +
     title = "Evolución de la correlación entre subclusters según ventana de puntajes"
   )
 dev.off()
+
+
+# -------------------- Formato {3,2},{0} -> {0,1},{1} --------------------------
+
+base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin_2.csv")
+
+# Define parameters
+window_size <- 10 # Size of the sliding window
+min_cluster_size <- 50 # Minimum cluster size for stable network estimation
+k_values <- 2:6 # Range of cluster numbers to explore
+external_variables <- c("SEXO", "COD_SALUD_MENTAL", "rangos_edad", "recod_estado_civil")
+
+start_val_vec = 0:(max(base_igi_bin$puntaje_total) - window_size + 1)
+
+# -- BY BLOCKS
+
+cl <- makeCluster(12, type = "FORK")  
+registerDoParallel(cl)
+
+time_init <- Sys.time()
+results_grid_parallel_1 <- process_window_parallel(start_val_vec[1:10], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel <- difftime(time_fin, time_init, units = "auto") # 3.85 k=2:6
+
+time_init <- Sys.time()
+results_grid_parallel_2 <- process_window_parallel(start_val_vec[11:15], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel_2 <- difftime(time_fin, time_init, units = "auto") # 5.14 min
+
+time_init <- Sys.time()
+results_grid_parallel_3 <- process_window_parallel(start_val_vec[16:20], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel_3 <- difftime(time_fin, time_init, units = "auto") # 3.98 min
+
+time_init <- Sys.time()
+results_grid_parallel_4 <- process_window_parallel(start_val_vec[21:25], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel_4 <- difftime(time_fin, time_init, units = "auto") # 2.3 min
+
+time_init <- Sys.time()
+results_grid_parallel_5 <- process_window_parallel(start_val_vec[26:28], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel_5 <- difftime(time_fin, time_init, units = "auto") # 1.8 min
+
+time_init <- Sys.time()
+results_grid_parallel_6 <- process_window_parallel(start_val_vec[29:30], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel_6
+
+stopCluster(cl)
+
+write.csv(results_grid_parallel_1, "psy_net_recidivism_files/optimal_k_grid_parallel_1.csv", row.names = FALSE)
+write.csv(results_grid_parallel_2, "psy_net_recidivism_files/optimal_k_grid_parallel_2.csv", row.names = FALSE)
+write.csv(results_grid_parallel_3, "psy_net_recidivism_files/optimal_k_grid_parallel_3.csv", row.names = FALSE)
+write.csv(results_grid_parallel_4, "psy_net_recidivism_files/optimal_k_grid_parallel_4.csv", row.names = FALSE)
+write.csv(results_grid_parallel_5, "psy_net_recidivism_files/optimal_k_grid_parallel_5.csv", row.names = FALSE)
+write.csv(results_grid_parallel_6, "psy_net_recidivism_files/optimal_k_grid_parallel_6.csv", row.names = FALSE)
+
+results_grid_parallel_1 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_1.csv")
+results_grid_parallel_2 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_2.csv")
+results_grid_parallel_3 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_3.csv")
+results_grid_parallel_4 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_4.csv")
+results_grid_parallel_5 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_5.csv")
+results_grid_parallel_6 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_6.csv")
+
+
+# -- ALL AT ONCE (DONT WORK FINE)
+
+base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin_2.csv")
+
+cl <- makeCluster(12, type = "FORK") 
+registerDoParallel(cl)
+time_init <- Sys.time()
+results_grid_parallel_all <- process_window_parallel(start_val_vec, base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+time_fin <- Sys.time()
+time_total_parallel_all <- difftime(time_fin, time_init, units = "auto") # 
+
+stopCluster(cl)
+
+write.csv(results_grid_parallel_all, "psy_net_recidivism_files/optimal_k_grid_parallel_all.csv", row.names = FALSE)
+
+# -- EXPLORE RESULTS 2 
+
+# ...
+# ...
+# ...
+
+
+
 
 ##
 ##

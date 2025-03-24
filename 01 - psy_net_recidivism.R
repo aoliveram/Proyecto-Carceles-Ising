@@ -113,19 +113,16 @@ verificar_binario(base_igi[,descriptivo_grupal])
 # "0 = no necesidad de intervención"
 # "1 = Necesidad de intervención"
 
-recode_variables <- function(x) {
-  
+recode_variables_1 <- function(x) {
   # Variables a recodificar
   vars_to_recode <- c("EDU15", "EDU16", "EDU17", "FAM18", "FAM19", "FAM20", 
                       "UTL23", "PAR25", "PAR27", "CAD30", "CAD31", "PRO36", "PRO37")
-  
   # Verificamos que las variables existan en el data frame
   missing_vars <- setdiff(vars_to_recode, names(x))
   if (length(missing_vars) > 0) {
     warning("Las siguientes variables no existen en el data frame: ",
             paste(missing_vars, collapse = ", "))
   }
-  
   # Re-codificamos
   for (col in vars_to_recode) {
     if (col %in% names(x)) {
@@ -134,15 +131,37 @@ recode_variables <- function(x) {
                                 NA))  # Para cualquier otro valor
     }
   }
-  
   return(x)
 }
 
-base_igi_bin <- recode_variables(base_igi)      # -->> creación base_igi_bin  !!!
+base_igi_bin_1 <- recode_variables_1(base_igi)      # -->> creación base_igi_bin  !!!
+
+recode_variables_2 <- function(x) {
+  # Variables a recodificar
+  vars_to_recode <- c("EDU15", "EDU16", "EDU17", "FAM18", "FAM19", "FAM20", 
+                      "UTL23", "PAR25", "PAR27", "CAD30", "CAD31", "PRO36", "PRO37")
+  # Verificamos que las variables existan en el data frame
+  missing_vars <- setdiff(vars_to_recode, names(x))
+  if (length(missing_vars) > 0) {
+    warning("Las siguientes variables no existen en el data frame: ",
+            paste(missing_vars, collapse = ", "))
+  }
+  # Re-codificamos
+  for (col in vars_to_recode) {
+    if (col %in% names(x)) {
+      x[[col]] <- ifelse(x[[col]] %in% c(3, 2), 0,  # {3,2} -> {0} Bajo riesgo
+                         ifelse(x[[col]] %in% c(0,1), 1,  # {0,1} -> {1} Necesita intervención
+                                NA))  # Para cualquier otro valor
+    }
+  }
+  return(x)
+}
+
+base_igi_bin_2 <- recode_variables_2(base_igi)      # -->> creación base_igi_bin  !!!
 
 # Verificamos
-verificar_binario(base_igi_bin[,descriptivo_grupal])
-
+verificar_binario(base_igi_bin_1[,descriptivo_grupal])
+verificar_binario(base_igi_bin_2[,descriptivo_grupal])
 
 # PUNTAJES DE LA MUESTRA ---
 
@@ -162,14 +181,22 @@ sumar_por_fila <- function(base, variables) {
   return(fila_sumas)
 }
 
-puntaje_total <- sumar_por_fila(base_igi_bin, descriptivo_grupal)
+puntaje_total_1 <- sumar_por_fila(base_igi_bin_1, descriptivo_grupal)
+puntaje_total_2 <- sumar_por_fila(base_igi_bin_2, descriptivo_grupal)
 
-base_igi$puntaje_total <- puntaje_total
-base_igi_bin$puntaje_total <- puntaje_total
+base_igi_bin_1$puntaje_total <- puntaje_total_1
+base_igi_bin_2$puntaje_total <- puntaje_total_2
 
-png("psy_net_recidivism_plots/hist_puntajes_igi_1.png", width = 800, height = 600)
+png("psy_net_plots/hist_puntajes_igi_1.png", width = 800, height = 600)
 hist(puntaje_total,
      main = "Distribución de puntajes IGI {3,2,1},{0} -> {0},{1}",
+     ylab = "Número de casos",
+     xlab = "Puntage total IGI",
+     col = "gold")
+dev.off()
+png("psy_net_plots/hist_puntajes_igi_2.png", width = 800, height = 600)
+hist(puntaje_total_2,
+     main = "Distribución de puntajes IGI {3,2},{0,1} -> {0},{1}",
      ylab = "Número de casos",
      xlab = "Puntage total IGI",
      col = "gold")
@@ -178,57 +205,59 @@ dev.off()
 # MAPA DE CALOR ---
 
 # Solo filas con puntajes
-base_igi_bin <- base_igi_bin[!is.na(base_igi_bin$puntaje_total), ]
+base_igi_bin_1 <- base_igi_bin_1[!is.na(base_igi_bin_1$puntaje_total), ]
+base_igi_bin_2 <- base_igi_bin_2[!is.na(base_igi_bin_2$puntaje_total), ]
 
-valores_puntaje <- sort(unique(base_igi_bin$puntaje_total))
+valores_puntaje_1 <- sort(unique(base_igi_bin_1$puntaje_total))
+valores_puntaje_2 <- sort(unique(base_igi_bin_2$puntaje_total))
 
 # Creamos una base para guardar la proporción de reos con cada variable como 1's.
-base_proporciones <- matrix(0, nrow = length(descriptivo_grupal), ncol = length(valores_puntaje))
-colnames(base_proporciones) <- valores_puntaje
-row.names(base_proporciones) <- descriptivo_grupal
+base_proporciones_1 <- matrix(0, nrow = length(descriptivo_grupal), ncol = length(valores_puntaje_1))
+colnames(base_proporciones_1) <- valores_puntaje_1
+row.names(base_proporciones_1) <- descriptivo_grupal
 
 # Filtramos por Puntaje (j) y por Variable de interés (i)
-for (j in seq_along(valores_puntaje)) {
-  casos_filtrados <- base_igi_bin$puntaje_total == valores_puntaje[j]
+for (j in seq_along(valores_puntaje_1)) {
+  casos_filtrados <- base_igi_bin_1$puntaje_total == valores_puntaje_1[j]
   total_reos_ptje_j <- sum(casos_filtrados)
   
   if (total_reos_ptje_j > 0) {
     for (i in seq_along(descriptivo_grupal)) {
-      variable_i <- base_igi_bin[casos_filtrados, descriptivo_grupal[i]]
+      variable_i <- base_igi_bin_1[casos_filtrados, descriptivo_grupal[i]]
       
       # Proporción de reos con ptje j que tienen activo el ítem i
       z <- sum(variable_i, na.rm = TRUE) / total_reos_ptje_j
       
       if (!is.na(z)) {
-        base_proporciones[i, j] <- z
+        base_proporciones_1[i, j] <- z
       }
     }
   }
 }
 
-base_proporciones <- as.data.frame(base_proporciones)
+base_proporciones_1 <- as.data.frame(base_proporciones_1)
 
 # Media por fila
-base_proporciones$MediaProporciones <- rowMeans(base_proporciones, na.rm = TRUE)
+base_proporciones_1$MediaProporciones <- rowMeans(base_proporciones_1, na.rm = TRUE)
 
 # Creamos una columna con la categoría (HD, EDU, PAT, PAR, CAD...)
-base_proporciones$Categoria <- gsub("[^A-Za-z]+", "", rownames(base_proporciones))
+base_proporciones_1$Categoria <- gsub("[^A-Za-z]+", "", rownames(base_proporciones_1))
 
 # Ordenamos dentro de cada categoría por la media de proporciones
-base_proporciones <- base_proporciones[order(base_proporciones$Categoria, -base_proporciones$MediaProporciones), ]
+base_proporciones_1 <- base_proporciones_1[order(base_proporciones_1$Categoria, -base_proporciones_1$MediaProporciones), ]
 
 # Identificar los cambios de categoría para segmentar el plot
-category_breaks <- cumsum(table(base_proporciones$Categoria))
+category_breaks_1 <- cumsum(table(base_proporciones_1$Categoria))
 
 # Transformar matriz para ggplot2 [antes (43 obs 105 var) ahora (1763 obs 3 var)]
-base_proporciones <- as.data.frame(as.table(as.matrix(
-  base_proporciones[, !(colnames(base_proporciones) %in% c("MediaProporciones", "Categoria"))]
+base_proporciones_1 <- as.data.frame(as.table(as.matrix(
+  base_proporciones_1[, !(colnames(base_proporciones_1) %in% c("MediaProporciones", "Categoria"))]
 )))
-names(base_proporciones) <- c("Variable", "PuntajeTotal", "Frecuencia")
+names(base_proporciones_1) <- c("Variable", "PuntajeTotal", "Frecuencia")
 
 # Creamos el mapa de calor con líneas grises entre categorías
-png("psy_net_recidivism_plots/heatmap_prop_1.png", width = 800, height = 600)
-ggplot(base_proporciones, aes(x = PuntajeTotal, y = Variable, fill = Frecuencia)) +
+png("psy_net_plots/heatmap_prop_1.png", width = 800, height = 600)
+ggplot(base_proporciones_1, aes(x = PuntajeTotal, y = Variable, fill = Frecuencia)) +
   geom_tile() +
   scale_fill_gradient(low = "white", high = "blue") +
   labs(title = "Proporción de activación de ítems segun puntaje total {3,2,1},{0} -> {0},{1}", 
@@ -237,8 +266,69 @@ ggplot(base_proporciones, aes(x = PuntajeTotal, y = Variable, fill = Frecuencia)
        fill = "Proporción") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_hline(yintercept = category_breaks + 0.5, color = "gold", size = 0.5, linetype = "dashed")  # Líneas grises separando categorías
+  geom_hline(yintercept = category_breaks_1 + 0.5, color = "gold", size = 0.5, linetype = "dashed")  # Líneas grises separando categorías
 dev.off()
+
+
+
+# Creamos una base para guardar la proporción de reos con cada variable como 1's.
+base_proporciones_2 <- matrix(0, nrow = length(descriptivo_grupal), ncol = length(valores_puntaje_2))
+colnames(base_proporciones_2) <- valores_puntaje_2
+row.names(base_proporciones_2) <- descriptivo_grupal
+
+# Filtramos por Puntaje (j) y por Variable de interés (i)
+for (j in seq_along(valores_puntaje_2)) {
+  casos_filtrados <- base_igi_bin_2$puntaje_total == valores_puntaje_2[j]
+  total_reos_ptje_j <- sum(casos_filtrados)
+  
+  if (total_reos_ptje_j > 0) {
+    for (i in seq_along(descriptivo_grupal)) {
+      variable_i <- base_igi_bin_2[casos_filtrados, descriptivo_grupal[i]]
+      
+      # Proporción de reos con ptje j que tienen activo el ítem i
+      z <- sum(variable_i, na.rm = TRUE) / total_reos_ptje_j
+      
+      if (!is.na(z)) {
+        base_proporciones_2[i, j] <- z
+      }
+    }
+  }
+}
+
+base_proporciones_2 <- as.data.frame(base_proporciones_2)
+
+base_proporciones_2$MediaProporciones <- rowMeans(base_proporciones_2, na.rm = TRUE)
+
+# Creamos una columna con la categoría (HD, EDU, PAT, PAR, CAD...)
+base_proporciones_2$Categoria <- gsub("[^A-Za-z]+", "", rownames(base_proporciones_2))
+
+# Ordenamos dentro de cada categoría por la media de proporciones
+base_proporciones_2 <- base_proporciones_2[order(base_proporciones_2$Categoria, -base_proporciones_2$MediaProporciones), ]
+
+# Identificar los cambios de categoría para segmentar el plot
+category_breaks_2 <- cumsum(table(base_proporciones_2$Categoria))
+
+# Transformar matriz para ggplot2 [antes (43 obs 105 var) ahora (1763 obs 3 var)]
+base_proporciones_2 <- as.data.frame(as.table(as.matrix(
+  base_proporciones_2[, !(colnames(base_proporciones_2) %in% c("MediaProporciones", "Categoria"))]
+)))
+names(base_proporciones_2) <- c("Variable", "PuntajeTotal", "Frecuencia")
+
+# Creamos el mapa de calor con líneas grises entre categorías
+png("psy_net_plots/heatmap_prop_2.png", width = 800, height = 600)
+ggplot(base_proporciones_2, aes(x = PuntajeTotal, y = Variable, fill = Frecuencia)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "blue") +
+  labs(title = "Proporción de activación de ítems segun puntaje total {3,2},{0,1} -> {0},{1}", 
+       x = "Puntaje Total", 
+       y = "Variable", 
+       fill = "Proporción") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_hline(yintercept = category_breaks_2 + 0.5, color = "gold", size = 0.5, linetype = "dashed")  # Líneas grises separando categorías
+dev.off()
+
+
 
 # PLOT REINCIDENTES VS NO-REINCIDENTES ---
 
@@ -266,7 +356,7 @@ tabla_proporciones <- as.data.frame(tabla_proporciones)
 tabla_proporciones$Var1 <- as.numeric(as.character(tabla_proporciones$Var1))
 
 # Generamos el gráfico base para Var2 == 0
-png("psy_net_recidivism_plots/riesgo_reinc_vs_no_reinc.png", width = 800, height = 600)
+png("psy_net_plots/riesgo_reinc_vs_no_reinc.png", width = 800, height = 600)
 plot(
   tabla_proporciones$Var1[tabla_proporciones$Var2 == 0], 
   tabla_proporciones$Freq[tabla_proporciones$Var2 == 0], 
@@ -298,7 +388,7 @@ round(cor(base_igi$puntaje_total,base_igi$reincidencia),2)
 risk_category_breaks <- c(-Inf, 4, 10, 19, 29, Inf)
 
 # Creamos el mapa de calor con líneas verticales en los breaks
-ggplot(base_proporciones, aes(x = as.numeric(as.character(PuntajeTotal)), y = Variable, fill = Frecuencia)) +
+ggplot(base_proporciones_1, aes(x = as.numeric(as.character(PuntajeTotal)), y = Variable, fill = Frecuencia)) +
   geom_tile() +
   scale_fill_gradient(low = "white", high = "blue") +
   labs(title = "Mapa de calor con categorías de riesgo", 
@@ -312,11 +402,16 @@ ggplot(base_proporciones, aes(x = as.numeric(as.character(PuntajeTotal)), y = Va
 # GUARDAMOS DATOS ---
 
 # Seleccionamos variables de interés
-base_igi_bin_ising <-  base_igi_bin[,colnames(base_igi_bin) %in% descriptivo_grupal]
+base_igi_bin_ising_1 <-  base_igi_bin_1[,colnames(base_igi_bin_1) %in% descriptivo_grupal]
+base_igi_bin_ising_2 <-  base_igi_bin_2[,colnames(base_igi_bin_2) %in% descriptivo_grupal]
 
-write.csv(base_igi, "psy_net_recidivism_files/base_igi.csv", row.names = FALSE)
-write.csv(base_igi_bin, "psy_net_recidivism_files/base_igi_bin.csv", row.names = FALSE)
-write.csv(base_igi_bin_ising, "psy_net_recidivism_files/base_igi_bin_ising.csv", row.names = FALSE)
+write.csv(base_igi, "psy_net_files/base_igi.csv", row.names = FALSE)
+
+write.csv(base_igi_bin_1, "psy_net_files/base_igi_bin_1.csv", row.names = FALSE)
+write.csv(base_igi_bin_ising_1, "psy_net_files/base_igi_bin_ising_1.csv", row.names = FALSE)
+
+write.csv(base_igi_bin_2, "psy_net_files/base_igi_bin_2.csv", row.names = FALSE)
+write.csv(base_igi_bin_ising_2, "psy_net_files/base_igi_bin_ising_2.csv", row.names = FALSE)
 
 # ------------------------------------------------------------------------------
 # Modelo de Ising - correlación condicionando el resto de variables
@@ -324,9 +419,13 @@ write.csv(base_igi_bin_ising, "psy_net_recidivism_files/base_igi_bin_ising.csv",
 
 # Cargamos datos procesados
 
-base_igi <- read.csv("psy_net_recidivism_files/base_igi.csv")
-base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin.csv")
-base_igi_bin_ising <- read.csv("psy_net_recidivism_files/base_igi_bin_ising.csv")
+base_igi <- read.csv("psy_net_files/base_igi.csv")
+
+base_igi_bin_1 <- read.csv("psy_net_files/base_igi_bin_1.csv")
+base_igi_bin_2 <- read.csv("psy_net_files/base_igi_bin_2.csv")
+
+base_igi_bin_ising_1 <- read.csv("psy_net_files/base_igi_bin_ising_1.csv")
+base_igi_bin_ising_2 <- read.csv("psy_net_files/base_igi_bin_ising_2.csv")
 
 # NOTA: Aquí hicimos un Ising apegado al estándar de valores 1 y -1. 
 # No obstante, en etapas posteriores esto generaba errores para algunos cálculos que 
@@ -354,25 +453,40 @@ library(bootnet)
 library(qgraph)
 library(igraph)
 
-verificar_binario(base_igi_bin_ising[,descriptivo_grupal]) # Check
+verificar_binario(base_igi_bin_ising_1[,descriptivo_grupal]) # Check
+verificar_binario(base_igi_bin_ising_2[,descriptivo_grupal]) 
 
 # Estimamos la red
-red_dicotomica <- bootnet::estimateNetwork(base_igi_bin_ising, 
+red_dicotomica_1 <- bootnet::estimateNetwork(base_igi_bin_ising_1, 
                                            default = "IsingFit",
                                            tuning = 0.25,
                                            labels = descriptivo_grupal)
 
 # Generar el layout con qgraph y guardarlo
-png("psy_net_recidivism_plots/red_base_igi_bin_1.png", width = 1000, height = 1000)
-qg <- qgraph(red_dicotomica$graph, layout = "spring", labels = colnames(red_dicotomica$graph))
+png("psy_net_plots/plots_redes/red_base_igi_bin_1.png", width = 1000, height = 1000)
+qg <- qgraph(red_dicotomica_1$graph, layout = "spring", labels = colnames(red_dicotomica_1$graph))
 dev.off()
 
 # Extraer y guardar el layout generado
 layout_guardado <- qg$layout
-write.csv(layout_guardado, "psy_net_recidivism_plots/layout_red_base_igi_bin.csv", row.names = FALSE)
+write.csv(layout_guardado, "psy_net_plots/plots_redes/layout_red_base_igi_bin.csv", row.names = FALSE)
+
+
+# Estimamos la red
+red_dicotomica_2 <- bootnet::estimateNetwork(base_igi_bin_ising_2, 
+                                           default = "IsingFit",
+                                           tuning = 0.25,
+                                           labels = descriptivo_grupal)
+
+# Generar el layout con qgraph y guardarlo
+png("psy_net_plots/plots_redes/red_base_igi_bin_2.png", width = 1000, height = 1000)
+layout_red <- as.matrix(read.csv("psy_net_plots/plots_redes/layout_red_base_igi_bin.csv"))
+qg <- qgraph(red_dicotomica_2$graph, layout = layout_red, labels = colnames(red_dicotomica_2$graph))
+dev.off()
+
 
 # Convertimos a igraph
-grafo <- graph_from_adjacency_matrix(red_dicotomica$graph, mode = "undirected", weighted = TRUE)
+grafo <- graph_from_adjacency_matrix(red_dicotomica_1$graph, mode = "undirected", weighted = TRUE)
 E(grafo)$weight <- abs(E(grafo)$weight)
 
 # Métricas comunes
@@ -403,67 +517,99 @@ comunidades_tabla
 # Ahora analicemos cuáles atributos aparecen correlacionados positiva y negativamente entre sí.
 
 # Creamos categorías de puntajes de riesgo
-base_igi_bin_ising <- base_igi_bin_ising %>%
+base_igi_bin_ising_1 <- base_igi_bin_ising_1 %>%
+  dplyr::mutate(risk_category = cut(puntaje_total, 
+                                    breaks = c(-Inf, 19, 29, Inf),  # Nuevos breaks
+                                    labels = c("Low", "Intermediate", "High"),  # Nombres de los grupos
+                                    include.lowest = TRUE))
+
+base_igi_bin_ising_2 <- base_igi_bin_ising_2 %>%
   dplyr::mutate(risk_category = cut(puntaje_total, 
                                     breaks = c(-Inf, 19, 29, Inf),  # Nuevos breaks
                                     labels = c("Low", "Intermediate", "High"),  # Nombres de los grupos
                                     include.lowest = TRUE))
 
 # Analizamos correlaciones por categoría de riesgo
-cor_low <- cor(base_igi_bin_ising %>% filter(risk_category == "Low") %>% select(-risk_category))
-cor_intermediate <- cor(base_igi_bin_ising %>% filter(risk_category == "Intermediate") %>% select(-risk_category))
-cor_high <- cor(base_igi_bin_ising %>% filter(risk_category == "High") %>% select(-risk_category))
+cor_low_1 <- cor(base_igi_bin_ising_1 %>% filter(risk_category == "Low") %>% select(-risk_category))
+cor_intermediate_1 <- cor(base_igi_bin_ising_1 %>% filter(risk_category == "Intermediate") %>% select(-risk_category))
+cor_high_1 <- cor(base_igi_bin_ising_1 %>% filter(risk_category == "High") %>% select(-risk_category))
+
+cor_low_2 <- cor(base_igi_bin_ising_2 %>% filter(risk_category == "Low") %>% select(-risk_category))
+cor_intermediate_2 <- cor(base_igi_bin_ising_2 %>% filter(risk_category == "Intermediate") %>% select(-risk_category))
+cor_high_2 <- cor(base_igi_bin_ising_2 %>% filter(risk_category == "High") %>% select(-risk_category))
 
 
 library(corrplot)
-corrplot(cor_low, main = "Correlaciones (Puntajes Bajos)")
-corrplot(cor_intermediate, main = "Correlaciones (Puntajes Intermedios)")
-corrplot(cor_high, main = "Correlaciones (Puntajes Altos)")
+corrplot(cor_low_1, main = "Correlaciones (Puntajes Bajos)")
+corrplot(cor_intermediate_1, main = "Correlaciones (Puntajes Intermedios)")
+corrplot(cor_high_1, main = "Correlaciones (Puntajes Altos)")
 
 # Para un primer acercamiento, dividamos la base en tres grupos de riesgo: bajo,intermedio y alto.
 
-# Filtramos datos por grupo de riesgo bajo
-red_bajo <- bootnet::estimateNetwork(
-  base_igi_bin_ising %>% filter(risk_category == "Low") %>% 
+red_bajo_1 <- bootnet::estimateNetwork(
+  base_igi_bin_ising_1 %>% filter(risk_category == "Low") %>% 
+    select(-risk_category),  # Eliminar la columna de clasificación
+  default = "IsingFit"
+)
+red_intermedio_1 <- bootnet::estimateNetwork(
+  base_igi_bin_ising_1 %>% filter(risk_category == "Intermediate") %>% 
+    select(-risk_category),  # Eliminar la columna de clasificación
+  default = "IsingFit"
+)
+red_alto_1 <- bootnet::estimateNetwork(
+  base_igi_bin_ising_1 %>% filter(risk_category == "High") %>% 
     select(-risk_category),  # Eliminar la columna de clasificación
   default = "IsingFit"
 )
 
-# Filtramos datos por grupo de riesgo intermedio
-red_intermedio <- bootnet::estimateNetwork(
-  base_igi_bin_ising %>% filter(risk_category == "Intermediate") %>% 
+matriz_pesos_bajo_1 <- red_bajo_1$graph
+matriz_pesos_medio_1 <- red_intermedio_1$graph
+matriz_pesos_alto_1 <- red_alto_1$graph
+
+red_bajo_2 <- bootnet::estimateNetwork(
+  base_igi_bin_ising_2 %>% filter(risk_category == "Low") %>% 
+    select(-risk_category),  # Eliminar la columna de clasificación
+  default = "IsingFit"
+)
+red_intermedio_2 <- bootnet::estimateNetwork(
+  base_igi_bin_ising_2 %>% filter(risk_category == "Intermediate") %>% 
+    select(-risk_category),  # Eliminar la columna de clasificación
+  default = "IsingFit"
+)
+red_alto_2 <- bootnet::estimateNetwork(
+  base_igi_bin_ising_2 %>% filter(risk_category == "High") %>% 
     select(-risk_category),  # Eliminar la columna de clasificación
   default = "IsingFit"
 )
 
-# Filtramos datos por grupo de riesgo alto
-red_alto <- bootnet::estimateNetwork(
-  base_igi_bin_ising %>% filter(risk_category == "High") %>% 
-    select(-risk_category),  # Eliminar la columna de clasificación
-  default = "IsingFit"
-)
-
-# Visualización de redes
-# Extraemos la matriz de pesos de red_bajo, red_medio, red_alto
-matriz_pesos_bajo <- red_bajo$graph
-matriz_pesos_medio <- red_intermedio$graph
-matriz_pesos_alto <- red_alto$graph
+matriz_pesos_bajo_2 <- red_bajo_2$graph
+matriz_pesos_medio_2 <- red_intermedio_2$graph
+matriz_pesos_alto_2 <- red_alto_2$graph
 
 # Cargar el layout guardado
-layout_red <- as.matrix(read.csv("psy_net_recidivism_plots/layout_red_base_igi_bin.csv"))
+layout_red <- as.matrix(read.csv("psy_net_plots/plots_redes/layout_red_base_igi_bin.csv"))
 
 # Generarmos los grafos con qgraph para inspección visual de las diferencias
-png("psy_net_recidivism_plots/red_ptje_1_bin_1.png", width = 1000, height = 1000)
-qgraph(matriz_pesos_bajo, layout = layout_red, title = "Riesgo Bajo {3,2,1},{0} -> {0},{1}")
+png("psy_net_plots/plots_redes/red_ptje_1_bin_1.png", width = 1000, height = 1000)
+qgraph(matriz_pesos_bajo_1, layout = layout_red, title = "Riesgo Bajo {3,2,1},{0} -> {0},{1}")
+dev.off()
+png("psy_net_plots/plots_redes/red_ptje_2_bin_1.png", width = 1000, height = 1000)
+qgraph(matriz_pesos_medio_1, layout = layout_red, title = "Riesgo Medio {3,2,1},{0} -> {0},{1}")
+dev.off()
+png("psy_net_plots/plots_redes/red_ptje_3_bin_1.png", width = 1000, height = 1000)
+qgraph(matriz_pesos_alto_1, layout = layout_red, title = "Riesgo Alto {3,2,1},{0} -> {0},{1}")
 dev.off()
 
-png("psy_net_recidivism_plots/red_ptje_2_bin_1.png", width = 1000, height = 1000)
-qgraph(matriz_pesos_medio, layout = layout_red, title = "Riesgo Medio {3,2,1},{0} -> {0},{1}")
+png("psy_net_plots/plots_redes/red_ptje_1_bin_2.png", width = 1000, height = 1000)
+qgraph(matriz_pesos_bajo_2, layout = layout_red, title = "Riesgo Bajo {3,2},{0,1} -> {0},{1}")
+dev.off()
+png("psy_net_plots/plots_redes/red_ptje_2_bin_2.png", width = 1000, height = 1000)
+qgraph(matriz_pesos_medio_2, layout = layout_red, title = "Riesgo Medio {3,2},{0,1} -> {0},{1}")
+dev.off()
+png("psy_net_plots/plots_redes/red_ptje_3_bin_2.png", width = 1000, height = 1000)
+qgraph(matriz_pesos_alto_2, layout = layout_red, title = "Riesgo Alto {3,2},{0,1} -> {0},{1}")
 dev.off()
 
-png("psy_net_recidivism_plots/red_ptje_3_bin_1.png", width = 1000, height = 1000)
-qgraph(matriz_pesos_alto, layout = layout_red, title = "Riesgo Alto {3,2,1},{0} -> {0},{1}")
-dev.off()
 
 # Veamos ahora si se detectan comunidades diferentes en estas tres redes obtenidas.
 
@@ -496,22 +642,9 @@ dev.off()
 # Nota: Las visualizaciones sugieren que hay espacio para una exploración más detallada.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 # ------------------------------------------------------------------------------
 # Bootnet - Ventana de 10 puntos  
 # ------------------------------------------------------------------------------
-
 
 # Ahora que sabemos que parece haber diferencias en las redes para distintos 
 # niveles de riesgo (como era lógico esperar), vamos al centro de nuestro objetivo: 
@@ -520,6 +653,8 @@ dev.off()
 
 # Las ventanas serán móviles. Es decir, si la ventana es de 10 puntos, se calcula para
 # ventana que parte en 0 hasta 9, luego de 1 hasta 10, y así sucesivamente hasta 34 a 43.
+
+# ---------- Formato {3,2,1},{0} -> {0},{1} ----------------------
 
 # 1. Definimos contenedores para resultados ---
 cor_results_sliding <- data.frame()
@@ -643,7 +778,7 @@ for (start_val in inicios_ventana) {
 # --- Revisión objeto clust_hier (rango puntaje 32 33 34 35 36 37 - 'el último clust_hier generado')
 
 # Inspecting the Dendrogram
-png("psy_net_recidivism_plots/method_dendrogram.png", width = 800, height = 600)
+png("psy_net_plots/method_dendrogram.png", width = 800, height = 600)
 plot(clust_hier)
 #heights <- sort(clust_hier$height, decreasing = TRUE)
 #largest_gap <- max(diff(heights))
@@ -652,7 +787,7 @@ abline(h = 1.75, col = "red")
 dev.off() 
 
 # Elbow Method (Within-Cluster Sum of Squares)
-png("psy_net_recidivism_plots/method_elbow.png", width = 800, height = 600)
+png("psy_net_plots/method_elbow.png", width = 800, height = 600)
 wss <- sapply(1:10, function(k) { 
   sum(cutree(clust_hier, k = k)^2)
 })
@@ -661,7 +796,7 @@ dev.off()
 
 # Silhouette Method
 library(cluster)
-png("psy_net_recidivism_plots/method_silhouette.png", width = 800, height = 600)
+png("psy_net_plots/method_silhouette.png", width = 800, height = 600)
 silhouette_scores <- sapply(2:10, function(k) {
   mean(silhouette(cutree(clust_hier, k = k), distancias)[, 3])
 })
@@ -671,7 +806,7 @@ dev.off()
 
 # Gap Statistic (To_Do : Lento - optimizar !!!! )
 library(cluster)
-png("psy_net_recidivism_plots/method_gap.png", width = 800, height = 600)
+png("psy_net_plots/method_gap.png", width = 800, height = 600)
 make_cluster <- function(x, k) {
   list(cluster = cutree(hclust(dist(x), method = "ward.D2"), k = k))
 }
@@ -688,7 +823,6 @@ grid()         # is within one standard error of the maximum value. k=5 in this 
 # Gap(k) ≥ Gap(k+1) - s_{k+1}. 
 # Where s_{k+1} is the standard error of Gap(k+1)
 dev.off()
-
 
 # --- Fin revisión
 
@@ -766,6 +900,8 @@ ggplot(cor_long_b, aes(x = min_puntaje, y = clusters_comparados_factor, fill = c
     title = "Heatmap de correlaciones de redes entre subclusters"
   )
 
+
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
+# TO_DO: seguir con 00 - psy_net_recidivism3_revisar_original
