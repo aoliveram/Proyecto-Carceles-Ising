@@ -16,7 +16,7 @@
 Thumbs.db
 
 # Datos grandes (>50MB)
-*.csv
+#*.csv
 *.rds
 *.feather
 
