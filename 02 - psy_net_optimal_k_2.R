@@ -120,7 +120,7 @@ process_window_parallel <- function(start_val_in, base_igi_bin, descriptivo_grup
 
 # -------------------- Formato {3,2,1},{0} -> {0},{1} --------------------------
 
-base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin_1.csv")
+base_igi_bin <- read.csv("psy_net_files/base_igi_bin_1.csv")
 
 # Define parameters
 window_size <- 10 # Size of the sliding window
@@ -179,19 +179,19 @@ time_total_parallel_6
 
 stopCluster(cl)
 
-write.csv(results_grid_parallel_1, "psy_net_recidivism_files/optimal_k_grid_parallel_1.csv", row.names = FALSE)
-write.csv(results_grid_parallel_2, "psy_net_recidivism_files/optimal_k_grid_parallel_2.csv", row.names = FALSE)
-write.csv(results_grid_parallel_3, "psy_net_recidivism_files/optimal_k_grid_parallel_3.csv", row.names = FALSE)
-write.csv(results_grid_parallel_4, "psy_net_recidivism_files/optimal_k_grid_parallel_4.csv", row.names = FALSE)
-write.csv(results_grid_parallel_5, "psy_net_recidivism_files/optimal_k_grid_parallel_5.csv", row.names = FALSE)
-write.csv(results_grid_parallel_6, "psy_net_recidivism_files/optimal_k_grid_parallel_6.csv", row.names = FALSE)
+write.csv(results_grid_parallel_1, "psy_net_files/optimal_k_grid_parallel_1.csv", row.names = FALSE)
+write.csv(results_grid_parallel_2, "psy_net_files/optimal_k_grid_parallel_2.csv", row.names = FALSE)
+write.csv(results_grid_parallel_3, "psy_net_files/optimal_k_grid_parallel_3.csv", row.names = FALSE)
+write.csv(results_grid_parallel_4, "psy_net_files/optimal_k_grid_parallel_4.csv", row.names = FALSE)
+write.csv(results_grid_parallel_5, "psy_net_files/optimal_k_grid_parallel_5.csv", row.names = FALSE)
+write.csv(results_grid_parallel_6, "psy_net_files/optimal_k_grid_parallel_6.csv", row.names = FALSE)
 
-results_grid_parallel_1 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_1.csv")
-results_grid_parallel_2 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_2.csv")
-results_grid_parallel_3 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_3.csv")
-results_grid_parallel_4 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_4.csv")
-results_grid_parallel_5 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_5.csv")
-results_grid_parallel_6 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_6.csv")
+results_grid_parallel_1 <- read.csv("psy_net_files/optimal_k_grid_parallel_1.csv")
+results_grid_parallel_2 <- read.csv("psy_net_files/optimal_k_grid_parallel_2.csv")
+results_grid_parallel_3 <- read.csv("psy_net_files/optimal_k_grid_parallel_3.csv")
+results_grid_parallel_4 <- read.csv("psy_net_files/optimal_k_grid_parallel_4.csv")
+results_grid_parallel_5 <- read.csv("psy_net_files/optimal_k_grid_parallel_5.csv")
+results_grid_parallel_6 <- read.csv("psy_net_files/optimal_k_grid_parallel_6.csv")
 
 # -- ALL AT ONCE (DONT WORK FINE)
 
@@ -206,7 +206,7 @@ time_total_parallel_all <- difftime(time_fin, time_init, units = "auto") #
 
 stopCluster(cl)
 
-write.csv(results_grid_parallel_all, "psy_net_recidivism_files/optimal_k_grid_parallel_all.csv", row.names = FALSE)
+write.csv(results_grid_parallel_all, "psy_net_files/optimal_k_grid_parallel_all.csv", row.names = FALSE)
 
 # -- EXPLORE RESULTS
 
@@ -220,7 +220,7 @@ results_grid_parallel_all <- rbind(
   results_grid_parallel_6
 )
 
-png("psy_net_recidivism_plots/optimal_k_mean_cor.png", width = 800*1.1, height = 600*1.1)
+png("psy_net_plots/optimal_k_mean_cor_1.png", width = 800*1.1, height = 600*1.1)
 ggplot(results_grid_parallel_all, aes(x = start_val, y = k, fill = mean_pears_cor)) +
   geom_tile() +
   scale_fill_viridis_c(option = "plasma", direction = -1) +
@@ -232,7 +232,7 @@ ggplot(results_grid_parallel_all, aes(x = start_val, y = k, fill = mean_pears_co
   )
 dev.off()
 
-png("psy_net_recidivism_plots/optimal_k_silhouette_score.png", width = 800*1.1, height = 600*1.1)
+png("psy_net_plots/optimal_k_silhouette_score_1.png", width = 800*1.1, height = 600*1.1)
 ggplot(results_grid_parallel_all, aes(x = start_val, y = k, fill = silhouette_score)) +
   geom_tile() +
   scale_fill_viridis_c(option = "plasma", direction = -1) +
@@ -244,7 +244,7 @@ ggplot(results_grid_parallel_all, aes(x = start_val, y = k, fill = silhouette_sc
   )
 dev.off()
 
-png("psy_net_recidivism_plots/optimal_k_composite_score.png", width = 800*1.1, height = 600*1.1)
+png("psy_net_plots/optimal_k_composite_score_1.png", width = 800*1.1, height = 600*1.1)
 ggplot(results_grid_parallel_all, aes(x = start_val, y = k, fill = composite_score)) +
   geom_tile() +
   scale_fill_viridis_c(option = "plasma", direction = -1) +
@@ -258,7 +258,7 @@ dev.off()
 
 # Comparamos con el original
 
-cor_results_sliding <- read.csv("psy_net_recidivism_files/cor_results_sliding_01.csv")
+cor_results_sliding <- read.csv("psy_net_files/cor_results_sliding_1.csv")
 cor_results_sliding$mean_cor <- rowMeans(cor_results_sliding[, c("cor_1_2", "cor_1_3", "cor_2_3")])
 
 # Creamos objeto para plot
@@ -281,7 +281,7 @@ ggplot(cor_long, aes(x = min_puntaje, y = correlacion)) +
     title = "Evolución de la correlación entre subclusters según ventana de puntajes"
   )
 
-png("psy_net_recidivism_plots/optimal_k_cor_original.png", width = 800*1.1, height = 600*1.1/5)
+png("psy_net_plots/optimal_k_cor_original.png", width = 800*1.1, height = 600*1.1/5)
 ggplot(cor_results_sliding, aes(x = min_puntaje, y = 3, fill = mean_cor)) +
   geom_tile() +
   scale_fill_viridis_c(option = "plasma", direction = -1) +
@@ -296,7 +296,7 @@ dev.off()
 
 # -------------------- Formato {3,2},{0} -> {0,1},{1} --------------------------
 
-base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin_2.csv")
+base_igi_bin <- read.csv("psy_net_files/base_igi_bin_2.csv")
 
 # Define parameters
 window_size <- 10 # Size of the sliding window
@@ -312,55 +312,53 @@ cl <- makeCluster(12, type = "FORK")
 registerDoParallel(cl)
 
 time_init <- Sys.time()
-results_grid_parallel_1 <- process_window_parallel(start_val_vec[1:10], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+results_grid_parallel_1 <- process_window_parallel(start_val_vec[2:10], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
 time_fin <- Sys.time()
-time_total_parallel <- difftime(time_fin, time_init, units = "auto") # 3.85 k=2:6
+time_total_parallel_1 <- difftime(time_fin, time_init, units = "auto") # 2.76
 
 time_init <- Sys.time()
 results_grid_parallel_2 <- process_window_parallel(start_val_vec[11:15], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
 time_fin <- Sys.time()
-time_total_parallel_2 <- difftime(time_fin, time_init, units = "auto") # 5.14 min
+time_total_parallel_2 <- difftime(time_fin, time_init, units = "auto") # 3.01 min
 
 time_init <- Sys.time()
 results_grid_parallel_3 <- process_window_parallel(start_val_vec[16:20], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
 time_fin <- Sys.time()
-time_total_parallel_3 <- difftime(time_fin, time_init, units = "auto") # 3.98 min
+time_total_parallel_3 <- difftime(time_fin, time_init, units = "auto") # 3.91 min
 
 time_init <- Sys.time()
 results_grid_parallel_4 <- process_window_parallel(start_val_vec[21:25], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
 time_fin <- Sys.time()
-time_total_parallel_4 <- difftime(time_fin, time_init, units = "auto") # 2.3 min
+time_total_parallel_4 <- difftime(time_fin, time_init, units = "auto") # 3.50 min
 
 time_init <- Sys.time()
-results_grid_parallel_5 <- process_window_parallel(start_val_vec[26:28], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
+results_grid_parallel_5 <- process_window_parallel(start_val_vec[26:30], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
 time_fin <- Sys.time()
-time_total_parallel_5 <- difftime(time_fin, time_init, units = "auto") # 1.8 min
-
-time_init <- Sys.time()
-results_grid_parallel_6 <- process_window_parallel(start_val_vec[29:30], base_igi_bin, descriptivo_grupal, window_size, min_cluster_size, k_values)
-time_fin <- Sys.time()
-time_total_parallel_6
+time_total_parallel_5 <- difftime(time_fin, time_init, units = "auto") # 2.84 min
 
 stopCluster(cl)
 
-write.csv(results_grid_parallel_1, "psy_net_recidivism_files/optimal_k_grid_parallel_1.csv", row.names = FALSE)
-write.csv(results_grid_parallel_2, "psy_net_recidivism_files/optimal_k_grid_parallel_2.csv", row.names = FALSE)
-write.csv(results_grid_parallel_3, "psy_net_recidivism_files/optimal_k_grid_parallel_3.csv", row.names = FALSE)
-write.csv(results_grid_parallel_4, "psy_net_recidivism_files/optimal_k_grid_parallel_4.csv", row.names = FALSE)
-write.csv(results_grid_parallel_5, "psy_net_recidivism_files/optimal_k_grid_parallel_5.csv", row.names = FALSE)
-write.csv(results_grid_parallel_6, "psy_net_recidivism_files/optimal_k_grid_parallel_6.csv", row.names = FALSE)
+write.csv(results_grid_parallel_1, "psy_net_files/optimal_k_grid_parallel_2_1.csv", row.names = FALSE)
+write.csv(results_grid_parallel_2, "psy_net_files/optimal_k_grid_parallel_2_2.csv", row.names = FALSE)
+write.csv(results_grid_parallel_3, "psy_net_files/optimal_k_grid_parallel_2_3.csv", row.names = FALSE)
+write.csv(results_grid_parallel_4, "psy_net_files/optimal_k_grid_parallel_2_4.csv", row.names = FALSE)
+write.csv(results_grid_parallel_5, "psy_net_files/optimal_k_grid_parallel_2_5.csv", row.names = FALSE)
 
-results_grid_parallel_1 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_1.csv")
-results_grid_parallel_2 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_2.csv")
-results_grid_parallel_3 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_3.csv")
-results_grid_parallel_4 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_4.csv")
-results_grid_parallel_5 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_5.csv")
-results_grid_parallel_6 <- read.csv("psy_net_recidivism_files/optimal_k_grid_parallel_6.csv")
+results_grid_parallel_2_1 <- read.csv("psy_net_files/optimal_k_grid_parallel_2_1.csv")
+results_grid_parallel_2_2 <- read.csv("psy_net_files/optimal_k_grid_parallel_2_2.csv")
+results_grid_parallel_2_3 <- read.csv("psy_net_files/optimal_k_grid_parallel_2_3.csv")
+results_grid_parallel_2_4 <- read.csv("psy_net_files/optimal_k_grid_parallel_2_4.csv")
+results_grid_parallel_2_5 <- read.csv("psy_net_files/optimal_k_grid_parallel_2_5.csv")
 
 
 # -- ALL AT ONCE (DONT WORK FINE)
 
-base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin_2.csv")
+base_igi_bin <- read.csv("psy_net_files/base_igi_bin_2.csv")
+window_size <- 10 # Size of the sliding window
+min_cluster_size <- 50 # Minimum cluster size for stable network estimation
+k_values <- 2:6 # Range of cluster numbers to explore
+external_variables <- c("SEXO", "COD_SALUD_MENTAL", "rangos_edad", "recod_estado_civil")
+start_val_vec = 0:(max(base_igi_bin$puntaje_total) - window_size + 1)
 
 cl <- makeCluster(12, type = "FORK") 
 registerDoParallel(cl)
@@ -371,13 +369,91 @@ time_total_parallel_all <- difftime(time_fin, time_init, units = "auto") #
 
 stopCluster(cl)
 
-write.csv(results_grid_parallel_all, "psy_net_recidivism_files/optimal_k_grid_parallel_all.csv", row.names = FALSE)
+write.csv(results_grid_parallel_all, "psy_net_files/optimal_k_grid_parallel_all_2.csv", row.names = FALSE)
 
 # -- EXPLORE RESULTS 2 
 
-# ...
-# ...
-# ...
+# Combine all data frames into one
+results_grid_parallel_all_2 <- rbind(
+  results_grid_parallel_2_1,
+  results_grid_parallel_2_2,
+  results_grid_parallel_2_3,
+  results_grid_parallel_2_4,
+  results_grid_parallel_2_5
+)
+
+png("psy_net_plots/optimal_k_mean_cor_2.png", width = 800*1.1, height = 600*1.1)
+ggplot(results_grid_parallel_all_2, aes(x = start_val, y = k, fill = mean_pears_cor)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", direction = -1) +
+  labs(
+    x = "Window Start",
+    y = "Number of Clusters (k)",
+    fill = "Score (lower is better)",
+    title = "Mean Pears Cor Heatmap Parallel {3,2},{0,1} -> {0},{1}"
+  )
+dev.off()
+
+png("psy_net_plots/optimal_k_silhouette_score_2.png", width = 800*1.1, height = 600*1.1)
+ggplot(results_grid_parallel_all_2, aes(x = start_val, y = k, fill = silhouette_score)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", direction = -1) +
+  labs(
+    x = "Window Start",
+    y = "Number of Clusters (k)",
+    fill = "Score (higher is better)",
+    title = "Silhouette Score Heatmap Parallel {3,2},{0,1} -> {0},{1}"
+  )
+dev.off()
+
+png("psy_net_plots/optimal_k_composite_score_2.png", width = 800*1.1, height = 600*1.1)
+ggplot(results_grid_parallel_all_2, aes(x = start_val, y = k, fill = composite_score)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", direction = -1) +
+  labs(
+    x = "Window Start",
+    y = "Number of Clusters (k)",
+    fill = "Score (lower is better)",
+    title = "Composite Score Heatmap Parallel {3,2},{0,1} -> {0},{1}"
+  )
+dev.off()
+
+# Comparamos con el original
+
+cor_results_sliding <- read.csv("psy_net_files/cor_results_sliding_1.csv")
+cor_results_sliding$mean_cor <- rowMeans(cor_results_sliding[, c("cor_1_2", "cor_1_3", "cor_2_3")])
+
+# Creamos objeto para plot
+cor_long <- cor_results_sliding %>%
+  select(min_puntaje, max_puntaje, cor_1_2, cor_1_3, cor_2_3) %>%
+  pivot_longer(
+    cols = c("cor_1_2", "cor_1_3", "cor_2_3"),
+    names_to = "clusters_comparados",
+    values_to = "correlacion"
+  )
+ggplot(cor_long, aes(x = min_puntaje, y = correlacion)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ clusters_comparados, ncol = 1) +
+  theme_minimal() + 
+  ylim(0,1) +
+  labs(
+    x = "Puntaje mínimo de la ventana",
+    y = "Correlación de la red",
+    title = "Evolución de la correlación entre subclusters según ventana de puntajes"
+  )
+
+png("psy_net_plots/optimal_k_cor_original.png", width = 800*1.1, height = 600*1.1/5)
+ggplot(cor_results_sliding, aes(x = min_puntaje, y = 3, fill = mean_cor)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "plasma", direction = -1) +
+  labs(
+    x = "Puntaje mínimo de la ventana",
+    y = "Number of Clusters (k)",
+    fill = "Cor (lower is better)",
+    title = "Evolución de la correlación entre subclusters según ventana de puntajes"
+  )
+dev.off()
 
 
 
@@ -398,7 +474,7 @@ library(qgraph)
 library(igraph)
 
 # --- Carga de datos ---
-base_igi_bin <- read.csv("psy_net_recidivism_files/base_igi_bin.csv")
+base_igi_bin <- read.csv("psy_net_files/base_igi_bin.csv")
 descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
                         "EDU9","EDU10","EDU11","EDU12","EDU13","EDU14","EDU15","EDU16","EDU17",
                         "FAM18","FAM19","FAM20","FAM21",
@@ -501,8 +577,8 @@ results_grid <- process_window(base_igi_bin, descriptivo_grupal, window_size, mi
 time_fin <- Sys.time()
 time_total <- difftime(time_fin, time_init, units = "auto")  # 3.91 mins
 
-write.csv(results_grid, "psy_net_recidivism_files/optimal_k_grid_1.csv", row.names = FALSE)
-results_grid <- read.csv("psy_net_recidivism_files/optimal_k_grid_1.csv")
+write.csv(results_grid, "psy_net_files/optimal_k_grid_1.csv", row.names = FALSE)
+results_grid <- read.csv("psy_net_files/optimal_k_grid_1.csv")
 
 # Visualize results with a heatmap
 ggplot(results_grid, aes(x = start_val, y = k, fill = composite_score)) +
