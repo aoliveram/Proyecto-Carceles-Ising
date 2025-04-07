@@ -1,6 +1,5 @@
 # --- Configuración de computación paralela ---
 
-library(doParallel)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -9,6 +8,7 @@ library(cluster) # For silhouette calculation
 library(viridis) # For color scales
 library(qgraph)
 library(igraph)
+library(doParallel)
 
 descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD6","HD7","HD8",
                         "EDU9","EDU10","EDU11","EDU12","EDU13","EDU14","EDU15","EDU16","EDU17",
