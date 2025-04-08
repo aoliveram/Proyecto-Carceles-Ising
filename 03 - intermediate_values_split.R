@@ -313,8 +313,8 @@ barrido_param_igi_puntaje <- function(
     )
     
     # 8. Métricas de calidad
-    silueta <- mean(cluster::silhouette(sub_bloque$sub_cluster, distancias)[, "sil_width"])
-    puntaje_compuesto <- (1 - silueta) + mean(c(correlacion1_2,correlacion1_3,correlacion2_3))
+    silhouette <- mean(cluster::silhouette(sub_bloque$sub_cluster, distancias)[, "sil_width"])
+    puntaje_compuesto <- (1 - silhouette) + mean(c(correlacion1_2,correlacion1_3,correlacion2_3))
     
     # 9. Almacenar resultados correlacionales
     resultados_cor <- rbind(resultados_cor, data.frame(
@@ -326,7 +326,7 @@ barrido_param_igi_puntaje <- function(
       n_cluster1 = conteos_cluster[1],
       n_cluster2 = conteos_cluster[2],
       n_cluster3 = conteos_cluster[3],
-      silueta = round(silueta, 3),
+      silhouette = round(silhouette, 3),
       puntaje_compuesto = round(puntaje_compuesto, 3)
     ))
     
@@ -372,68 +372,72 @@ barrido_param_robo <- barrido_param_igi_puntaje(
   descriptivo_grupal = descriptivo_grupal, 
   variables_externas = variables_externas,
   window_size = 10,
-  window_starts = seq(20, 30, by = 1)
+  window_starts = seq(10, 20, by = 1)
 )
 time_fin <- Sys.time()
-time_total <- time_fin - time_init  # 28.11 sec
+time_total <- time_fin - time_init  # 48.11 sec
 
-# write.csv(cor_results_sliding_1, "psy_net_files/cor_results_sliding_1.csv", row.names = FALSE)
-# write.csv(chi_results_sliding_1, "psy_net_files/chi_results_sliding_1.csv", row.names = FALSE)
-# 
-# cor_results_sliding_1 <- read.csv("psy_net_files/cor_results_sliding_1.csv")
-# chi_results_sliding_1 <- read.csv("psy_net_files/chi_results_sliding_1.csv")
+str(barrido_param_robo)
 
-# 4. Al terminar el bucle, revisamos los resultados ---
+barrido_param_robo$resultados_correlaciones
 
-# Correlaciones entre matrices, con el rango de puntajes y n de cada subcluster
-cor_results_sliding_1
+# Configurar un gráfico de paneles múltiples
+par(mfrow = c(3, 1), mar = c(4, 4, 2, 1))
 
-# Resultados de chi cuadrado
-chi_results_sliding_1
+# Plot para cor_cluster1_2
+plot(barrido_param_robo$resultados_correlaciones$inicio_ventana, 
+     barrido_param_robo$resultados_correlaciones$cor_cluster1_2,
+     type = "o", col = "blue", pch = 16,
+     xlab = "", ylab = "Correlación de la red",
+     main = "cor_1_2", ylim = c(-0.1, 1))
 
-# Tablas de contingencia almacenadas
-names(cross_tables_sliding_1)  # para ver qué tablas hay
+# Plot para cor_cluster1_3
+plot(barrido_param_robo$resultados_correlaciones$inicio_ventana, 
+     barrido_param_robo$resultados_correlaciones$cor_cluster1_3,
+     type = "o", col = "blue", pch = 16,
+     xlab = "", ylab = "Correlación de la red",
+     main = "cor_1_3", ylim = c(-0.1, 1))
 
-# Creamos objeto para plot
-cor_long_1 <- cor_results_sliding_1 %>%
-  select(min_puntaje, max_puntaje, cor_1_2, cor_1_3, cor_2_3) %>%
+# Plot para cor_cluster2_3
+plot(barrido_param_robo$resultados_correlaciones$inicio_ventana, 
+     barrido_param_robo$resultados_correlaciones$cor_cluster2_3,
+     type = "o", col = "blue", pch = 16,
+     xlab = "Puntaje mínimo de la ventana", ylab = "Correlación de la red",
+     main = "cor_2_3", ylim = c(-0.1, 1))
+
+# Añadir título general
+mtext("Evolución de la correlación entre subclusters según ventana de puntajes", 
+      side = 3, line = -1, outer = TRUE)
+
+saveRDS(barrido_param_robo, "psy_net_files/barrido_param_robo.rds")
+barrido_param_robo <- readRDS("psy_net_files/barrido_param_robo.rds")
+
+# Transformar datos a formato largo
+cor_long_robo <- barrido_param_robo$resultados_correlaciones %>%
+  select(inicio_ventana, fin_ventana, cor_cluster1_2, cor_cluster1_3, cor_cluster2_3) %>%
   pivot_longer(
-    cols = c("cor_1_2", "cor_1_3", "cor_2_3"),
+    cols = c("cor_cluster1_2", "cor_cluster1_3", "cor_cluster2_3"),
     names_to = "clusters_comparados",
     values_to = "correlacion"
   )
 
-# EL MISMO PLOT QUE EN PPT
-png("psy_net_plots/cor_evolucion_1.png", width = 800*0.9, height = 600*0.9)
-ggplot(cor_long_1, aes(x = min_puntaje, y = correlacion)) +
+# Crear gráfico facetado
+#png("correlaciones_subclusters.png", width = 800*0.9, height = 600*0.9)
+ggplot(cor_long_robo, aes(x = inicio_ventana, y = correlacion)) +
   geom_line(color = "blue", size = 1) +
   geom_point(size = 2) +
   facet_wrap(~ clusters_comparados, ncol = 1) +
   theme_minimal() + 
-  ylim(0,1) +
+  ylim(0, 1) +
   labs(
     x = "Puntaje mínimo de la ventana",
     y = "Correlación de la red",
     title = "Evolución de la correlación entre subclusters según ventana de puntajes"
+  ) +
+  theme(
+    panel.grid.minor = element_line(color = "gray90"),
+    panel.grid.major = element_line(color = "gray90"),
+    strip.text = element_text(face = "bold")
   )
 dev.off()
 
-# Convertimos en factores
-cor_long_1$clusters_comparados_factor <- factor(
-  cor_long_1$clusters_comparados, 
-  levels = c("cor_1_2", "cor_1_3", "cor_2_3")
-)
-
-ggplot(cor_long_1, aes(x = min_puntaje, y = clusters_comparados_factor, fill = correlacion)) +
-  geom_tile(color = "white") +
-  scale_fill_gradient2(
-    low = "red", high = "blue", mid = "white",
-    midpoint = 0.5, limit = c(0,1), space = "Lab",
-    name = "Correlación"
-  ) +
-  theme_minimal() +
-  labs(
-    x = "Puntaje mínimo de la ventana",
-    y = "Par de subclusters",
-    title = "Heatmap de correlaciones de redes entre subclusters"
-  )
