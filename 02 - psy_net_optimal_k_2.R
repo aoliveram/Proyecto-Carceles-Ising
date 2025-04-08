@@ -1,3 +1,5 @@
+# Barrido paramétrico en ventana puntaje y k, para seleccionar un valor de k óptimo.
+
 # --- Configuración de computación paralela ---
 
 library(dplyr)

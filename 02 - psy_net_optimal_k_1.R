@@ -1,3 +1,5 @@
+# Vemos la correlación de Pearson para una separación de la red en k=3 clusters.
+
 library(bootnet)
 library(qgraph)
 library(dplyr)
