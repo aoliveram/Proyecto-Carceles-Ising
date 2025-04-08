@@ -422,7 +422,7 @@ cor_long_robo <- barrido_param_robo$resultados_correlaciones %>%
   )
 
 # Crear gráfico facetado
-#png("correlaciones_subclusters.png", width = 800*0.9, height = 600*0.9)
+png("psy_net_plots/barrido_param_robo.png", width = 800*0.9, height = 600*0.9)
 ggplot(cor_long_robo, aes(x = inicio_ventana, y = correlacion)) +
   geom_line(color = "blue", size = 1) +
   geom_point(size = 2) +
@@ -435,8 +435,8 @@ ggplot(cor_long_robo, aes(x = inicio_ventana, y = correlacion)) +
     title = "Evolución de la correlación entre subclusters según ventana de puntajes"
   ) +
   theme(
-    panel.grid.minor = element_line(color = "gray90"),
-    panel.grid.major = element_line(color = "gray90"),
+    panel.grid.minor = element_line(color = "gray93"),
+    panel.grid.major = element_line(color = "gray93"),
     strip.text = element_text(face = "bold")
   )
 dev.off()
