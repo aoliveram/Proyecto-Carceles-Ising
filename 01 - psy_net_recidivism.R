@@ -17,6 +17,8 @@ library(ggplot2)
 # Importamos
 base_igi <- read.csv("psy_net_recidivism3_revisar_files/base_psy_net_recidivism.csv")
 
+length(unique(base_igi$COD_PERS)) == length(base_igi$COD_PERS)
+
 # DECRIPTIVOS --- 
 
 sin_edad <- which(base_igi$EDAD == "S.I.")
