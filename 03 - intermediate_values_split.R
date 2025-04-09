@@ -79,8 +79,6 @@ length(unique(base_igi$COD_PERS)) == length(base_igi$COD_PERS) # TRUE
 
 # -------------------- ... -----------------------------------------------------
 
-delitos_unicos_clasificados <- readRDS("psy_net_files/delitos_unicos_clasificados.rds") 
-
 # Unir categorías al dataframe principal
 reos_filtrados <- reos_filtrados %>% 
   left_join(delitos_unicos_clasificados %>% select(DELITOS, CATEGORIA_DELITO), 
@@ -191,7 +189,6 @@ base_igi_bin_1_filtrado <- base_igi_bin_1_filtrado %>%
 # Bootnet - Ventana de 10 puntos  
 # ------------------------------------------------------------------------------
 
-
 descriptivo_grupal <- c("HD1","HD2","HD3","HD4","HD5","HD7","HD8",#"HD6",
                         "EDU9","EDU10","EDU11","EDU12","EDU13","EDU14","EDU15","EDU16","EDU17",
                         "FAM18","FAM19","FAM20","FAM21",
@@ -217,13 +214,6 @@ delitos_lista <- unique(base_igi_bin_1_filtrado$CATEGORIA_DELITO)
 obs_por_delito <- as.data.frame(table(base_igi_bin_1_filtrado$CATEGORIA_DELITO))
 colnames(obs_por_delito) <- c("Categoría", "Casos")
 obs_por_delito[order(-obs_por_delito$Casos), ]
-
-base_igi_bin_1_filtrado_robo <- base_igi_bin_1_filtrado[base_igi_bin_1_filtrado$CATEGORIA_DELITO == "Robo" ,] # 3366 obs
-base_igi_bin_1_filtrado_droga <- base_igi_bin_1_filtrado[base_igi_bin_1_filtrado$CATEGORIA_DELITO == "Delitos de Drogas" ,] # 808 obs
-base_igi_bin_1_filtrado_sex <- base_igi_bin_1_filtrado[base_igi_bin_1_filtrado$CATEGORIA_DELITO == "Delitos Sexuales" ,] # 119 obs
-base_igi_bin_1_filtrado_econ <- base_igi_bin_1_filtrado[base_igi_bin_1_filtrado$CATEGORIA_DELITO == "Delitos Económ/Estafas/Falsific" ,] # 47 obs
-base_igi_bin_1_filtrado_intraf <- base_igi_bin_1_filtrado[base_igi_bin_1_filtrado$CATEGORIA_DELITO == "Violencia Intrafamiliar (VIF)" ,] # 3 obs
-
 
 # Función principal ------------------------------------------------------------
 barrido_param_igi_puntaje <- function(
@@ -381,34 +371,6 @@ str(barrido_param_robo)
 
 barrido_param_robo$resultados_correlaciones
 
-# Configurar un gráfico de paneles múltiples
-par(mfrow = c(3, 1), mar = c(4, 4, 2, 1))
-
-# Plot para cor_cluster1_2
-plot(barrido_param_robo$resultados_correlaciones$inicio_ventana, 
-     barrido_param_robo$resultados_correlaciones$cor_cluster1_2,
-     type = "o", col = "blue", pch = 16,
-     xlab = "", ylab = "Correlación de la red",
-     main = "cor_1_2", ylim = c(-0.1, 1))
-
-# Plot para cor_cluster1_3
-plot(barrido_param_robo$resultados_correlaciones$inicio_ventana, 
-     barrido_param_robo$resultados_correlaciones$cor_cluster1_3,
-     type = "o", col = "blue", pch = 16,
-     xlab = "", ylab = "Correlación de la red",
-     main = "cor_1_3", ylim = c(-0.1, 1))
-
-# Plot para cor_cluster2_3
-plot(barrido_param_robo$resultados_correlaciones$inicio_ventana, 
-     barrido_param_robo$resultados_correlaciones$cor_cluster2_3,
-     type = "o", col = "blue", pch = 16,
-     xlab = "Puntaje mínimo de la ventana", ylab = "Correlación de la red",
-     main = "cor_2_3", ylim = c(-0.1, 1))
-
-# Añadir título general
-mtext("Evolución de la correlación entre subclusters según ventana de puntajes", 
-      side = 3, line = -1, outer = TRUE)
-
 saveRDS(barrido_param_robo, "psy_net_files/barrido_param_robo.rds")
 barrido_param_robo <- readRDS("psy_net_files/barrido_param_robo.rds")
 
@@ -441,3 +403,171 @@ ggplot(cor_long_robo, aes(x = inicio_ventana, y = correlacion)) +
   )
 dev.off()
 
+# ------------------------------------------------------------------------------
+# Comparación redes con distintos delitos
+# ------------------------------------------------------------------------------
+
+# Función principal ------------------------------------------------------------
+barrido_param_igi_puntaje_2 <- function(
+    base_igi_bin,
+    categoria_delito = NULL,
+    descriptivo_grupal,
+    variables_externas,
+    window_size,
+    window_starts,
+    k_clusters = 3,
+    min_window_obs = 50,
+    min_cluster_obs = 10,
+    distance_method = "binary",
+    hclust_method = "ward.D2") {
+  
+  # Inicializar objetos para resultados
+  resultados_cor <- data.frame()
+  resultados_chi2 <- data.frame()
+  
+  # 1. Filtrar por categoría delito si se especifica
+  if (!is.null(categoria_delito)) {
+    if (!"CATEGORIA_DELITO" %in% colnames(base_igi_bin)) {
+      stop("Columna 'CATEGORIA_DELITO' no encontrada en el dataframe")
+    }
+    base_igi_bin1 <- base_igi_bin %>% 
+      dplyr::filter(CATEGORIA_DELITO == categoria_delito[1])
+    base_igi_bin2 <- base_igi_bin %>% 
+      dplyr::filter(CATEGORIA_DELITO == categoria_delito[2])
+    base_igi_bin3 <- base_igi_bin %>% 
+      dplyr::filter(CATEGORIA_DELITO == categoria_delito[3])
+  }
+  
+  # 2. Validar existencia de columnas requeridas
+  
+  # 3. Procesar cada ventana
+  for (inicio in window_starts) {
+    fin <- inicio + window_size - 1
+    
+    sub_bloque1 <- base_igi_bin1 %>%
+      dplyr::filter(puntaje_total >= inicio, puntaje_total <= fin)
+    sub_bloque1 <- sub_bloque1[, descriptivo_grupal]
+    sub_bloque2 <- base_igi_bin2 %>%
+      dplyr::filter(puntaje_total >= inicio, puntaje_total <= fin)
+    sub_bloque2 <- sub_bloque2[, descriptivo_grupal]
+    sub_bloque3 <- base_igi_bin3 %>%
+      dplyr::filter(puntaje_total >= inicio, puntaje_total <= fin)
+    sub_bloque3 <- sub_bloque3[, descriptivo_grupal]
+    
+    # Saltar ventanas con pocos datos
+    if (nrow(sub_bloque1) < min_window_obs || nrow(sub_bloque2) < min_window_obs
+        || nrow(sub_bloque3) < min_window_obs) next 
+    
+    # 4. Clusterización
+    # matriz_items <- as.matrix(sub_bloque[, descriptivo_grupal])
+    # distancias <- dist(matriz_items, method = distance_method)
+    # clust <- hclust(distancias, method = hclust_method)
+    # sub_bloque$sub_cluster <- cutree(clust, k = k_clusters)
+    
+    # 5. Validar tamaño de clusters
+    
+    # 6. Modelos Ising por cluster
+    model_sub_1 <- estimateNetwork(
+      data    = sub_bloque1,
+      default = "IsingFit"
+    )
+    model_sub_2 <- estimateNetwork(
+      data    = sub_bloque2,
+      default = "IsingFit"
+    )
+    model_sub_3 <- estimateNetwork(
+      data    = sub_bloque3,
+      default = "IsingFit"
+    )
+    
+    # 7. Calcular correlaciones entre modelos (versión corregida)
+    correlacion1_2 <- cor(as.vector(model_sub_1$graph), as.vector(model_sub_2$graph))
+    correlacion1_3 <- cor(as.vector(model_sub_1$graph), as.vector(model_sub_3$graph))
+    correlacion2_3 <- cor(as.vector(model_sub_2$graph), as.vector(model_sub_3$graph))
+    
+    # 8. Métricas de calidad
+    # silhouette <- mean(cluster::silhouette(sub_bloque$sub_cluster, distancias)[, "sil_width"])
+    # puntaje_compuesto <- (1 - silhouette) + mean(c(correlacion1_2,correlacion1_3,correlacion2_3))
+    
+    # 9. Almacenar resultados correlacionales
+    resultados_cor <- rbind(resultados_cor, data.frame(
+      inicio_ventana = inicio,
+      fin_ventana = fin,
+      cor_cluster1_2 = round(correlacion1_2, 3),
+      cor_cluster1_3 = round(correlacion1_3, 3),
+      cor_cluster2_3 = round(correlacion2_3, 3),
+      n_net1 = nrow(sub_bloque1),
+      n_net2 = nrow(sub_bloque2),
+      n_net3 = nrow(sub_bloque3)#,
+      # silhouette = round(silhouette, 3),
+      # puntaje_compuesto = round(puntaje_compuesto, 3)
+    ))
+    
+  }
+  
+  # 11. Retornar resultados estructurados
+  list(
+    resultados_correlaciones = resultados_cor,
+    resultados_chi2 = resultados_chi2,
+    tablas_contingencia = tablas_contingencia
+  )
+}
+
+# ------------------------------------------------------------------------------
+
+# Bucle por característica de delito ---
+
+obs_por_delito[order(-obs_por_delito$Casos), ]
+
+print(delitos_lista[7]) # "Robo"
+print(delitos_lista[4]) # "Delitos de Drogas"
+print(delitos_lista[2]) # "Otros Delitos / No Especificado"
+categorias_delitos_input <- c(delitos_lista[7], delitos_lista[4], delitos_lista[2])
+
+time_init <- Sys.time()
+barrido_param_1 <- barrido_param_igi_puntaje_2(
+  base_igi_bin = base_igi_bin_1_filtrado,
+  categoria_delito = categorias_delitos_input,
+  descriptivo_grupal = descriptivo_grupal, 
+  variables_externas = variables_externas,
+  window_size = 10,
+  window_starts = seq(10, 20, by = 1)
+)
+time_fin <- Sys.time()
+time_total <- time_fin - time_init  # 1.14 min
+
+str(barrido_param_robo)
+
+barrido_param_1$resultados_correlaciones
+
+saveRDS(barrido_param_1, "psy_net_files/barrido_param_1.rds")
+barrido_param_1 <- readRDS("psy_net_files/barrido_param_1.rds")
+
+# Transformar datos a formato largo
+cor_long_1 <- barrido_param_1$resultados_correlaciones %>%
+  select(inicio_ventana, fin_ventana, cor_cluster1_2, cor_cluster1_3, cor_cluster2_3) %>%
+  pivot_longer(
+    cols = c("cor_cluster1_2", "cor_cluster1_3", "cor_cluster2_3"),
+    names_to = "clusters_comparados",
+    values_to = "correlacion"
+  )
+
+# Crear gráfico facetado
+png("psy_net_plots/barrido_param_1.png", width = 800*0.9, height = 600*0.9)
+ggplot(cor_long_1, aes(x = inicio_ventana, y = correlacion)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ clusters_comparados, ncol = 1) +
+  theme_minimal() + 
+  ylim(0, 1) +
+  labs(
+    x = "Puntaje mínimo de la ventana",
+    y = "Correlación de la red",
+    title = "Evolución de la correlación entre subclusters según ventana de puntajes"
+  ) +
+  theme(
+    panel.grid.minor = element_line(color = "gray93"),
+    panel.grid.major = element_line(color = "gray93"),
+    strip.text = element_text(face = "bold")
+  )
+dev.off()
