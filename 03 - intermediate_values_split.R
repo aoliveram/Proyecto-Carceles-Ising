@@ -54,12 +54,12 @@ reos_filtrados <- reos_filtrados %>%
 
 # -------------------- Creamos base_igi_bin_1_filtrado (solo códigos únicos) -----
 
-all(unique(base_igi_bin_1$COD_PERS) %in% unique(reos_filtrados$COD_PERS))
-
-# 7006 códigos están en ambas bases de datos, un 40.553 % de las disponibles en base_igi
-# (para el resto de casos, con num_delitos > 1, hay otro 23.385 %)
-cod_pers_baseigi_inter_reinc <- intersect(unique(base_igi_bin_1$COD_PERS), unique(reos_filtrados$COD_PERS))
-(length(cod_pers_baseigi_inter_reinc) / length(unique(base_igi_bin_1$COD_PERS))) * 100
+# all(unique(base_igi_bin_1$COD_PERS) %in% unique(reos_filtrados$COD_PERS))
+# 
+# # 7006 códigos están en ambas bases de datos, un 40.553 % de las disponibles en base_igi
+# # (para el resto de casos, con num_delitos > 1, hay otro 23.385 %)
+# cod_pers_baseigi_inter_reinc <- intersect(unique(base_igi_bin_1$COD_PERS), unique(reos_filtrados$COD_PERS))
+# (length(cod_pers_baseigi_inter_reinc) / length(unique(base_igi_bin_1$COD_PERS))) * 100
 
 base_igi_bin_1_filtrado <- base_igi_bin_1 %>%
   filter(COD_PERS %in% reos_filtrados$COD_PERS)
@@ -72,45 +72,45 @@ base_igi_bin_1_filtrado <- base_igi_bin_1 %>%
 #
 # ACTUALIZACIÓN: base_igi SOLO CONTIENE CÓDIGOS ÚNICOS. HAY QUE SELECCIONAR AQUELLA FILA 
 # QUE CONTIENE LA VENTANA TEMPORAL CUANDO SE HIZO EL IGI.
-length(unique(base_igi_bin_1$COD_PERS)) == length(base_igi_bin_1$COD_PERS) # TRUE
-length(unique(base_igi$COD_PERS)) == length(base_igi$COD_PERS) # TRUE
+# length(unique(base_igi_bin_1$COD_PERS)) == length(base_igi_bin_1$COD_PERS) # TRUE
+# length(unique(base_igi$COD_PERS)) == length(base_igi$COD_PERS) # TRUE
 
 # OTRA OPCIÓN ES VER CUÁNTO VARÍA LA CATEGORÍA DEL DELITO DE AQUELLOS QUE TIENEN 1 ACUSACIÓN
 
 # -------------------- ... -----------------------------------------------------
 
-# Unir categorías al dataframe principal
-reos_filtrados <- reos_filtrados %>% 
-  left_join(delitos_unicos_clasificados %>% select(DELITOS, CATEGORIA_DELITO), 
-            by = "DELITOS") %>% 
-  mutate(CATEGORIA_DELITO = ifelse(is.na(CATEGORIA_DELITO), 
-                                   "Falla categoría", 
-                                   CATEGORIA_DELITO))
-
-# 0 en 'Falla categoría' !
-nrow(reos_filtrados %>% filter(CATEGORIA_DELITO == "Falla categoría")) 
-
-# 70.6 % de los reos con solo 1 delito han reingresado más de 1 vez !
-reos_filtrados_multiReinc <- reos_filtrados %>%
-  group_by(COD_PERS) %>%
-  filter(n() > 1) %>%  # Selecciona códigos con más de 1 registro
-  ungroup()
-
-analisis_variacion <- reos_filtrados_multiReinc %>%
-  group_by(COD_PERS) %>%
-  summarise(
-    Total_Delitos = n(),
-    Categorias_Unicas = n_distinct(CATEGORIA_DELITO),
-    Lista_Categorias = toString(unique(CATEGORIA_DELITO))
-  ) %>%
-  arrange(desc(Categorias_Unicas))
-
-# Distribución de categorías únicas
-distribucion <- analisis_variacion %>%
-  count(Categorias_Unicas, name = "N_Reos") %>%
-  mutate(Porcentaje = round(N_Reos/nrow(analisis_variacion)*100, 2))
-
-distribucion
+# # Unir categorías al dataframe principal
+# reos_filtrados <- reos_filtrados %>% 
+#   left_join(delitos_unicos_clasificados %>% select(DELITOS, CATEGORIA_DELITO), 
+#             by = "DELITOS") %>% 
+#   mutate(CATEGORIA_DELITO = ifelse(is.na(CATEGORIA_DELITO), 
+#                                    "Falla categoría", 
+#                                    CATEGORIA_DELITO))
+# 
+# # 0 en 'Falla categoría' !
+# nrow(reos_filtrados %>% filter(CATEGORIA_DELITO == "Falla categoría")) 
+# 
+# # 70.6 % de los reos con solo 1 delito han reingresado más de 1 vez !
+# reos_filtrados_multiReinc <- reos_filtrados %>%
+#   group_by(COD_PERS) %>%
+#   filter(n() > 1) %>%  # Selecciona códigos con más de 1 registro
+#   ungroup()
+# 
+# analisis_variacion <- reos_filtrados_multiReinc %>%
+#   group_by(COD_PERS) %>%
+#   summarise(
+#     Total_Delitos = n(),
+#     Categorias_Unicas = n_distinct(CATEGORIA_DELITO),
+#     Lista_Categorias = toString(unique(CATEGORIA_DELITO))
+#   ) %>%
+#   arrange(desc(Categorias_Unicas))
+# 
+# # Distribución de categorías únicas
+# distribucion <- analisis_variacion %>%
+#   count(Categorias_Unicas, name = "N_Reos") %>%
+#   mutate(Porcentaje = round(N_Reos/nrow(analisis_variacion)*100, 2))
+# 
+# distribucion
 # output: Parte importante tiene 2 categorías ---> cambian de categoría.
 #  Categorias_Unicas | N_Reos | Porcentaje
 # 1                  | ~17k  | 45.3%
@@ -124,33 +124,33 @@ distribucion
 # SÍ, VARÍA HARTO, ASÍ QUE NO PUEDO OCUPAR CUALQUIERA, DEBO USAR EL QUE CORRESPONDE
 # AL MOMENTO EN QUE SE HIZO LA ENTREVISTRA
 
-min(base_igi_bin_1_filtrado$FECHA_ENTREVISTA)
-max(base_igi_bin_1_filtrado$FECHA_ENTREVISTA)
+# min(base_igi_bin_1_filtrado$FECHA_ENTREVISTA)
+# max(base_igi_bin_1_filtrado$FECHA_ENTREVISTA)
 
 # Veamos el porcentaje de entrevistas realizadas antes del egreso de los reos
 
-# 1. Unir ambas bases por COD_PERS
-datos_comparacion <- base_igi_bin_1_filtrado %>% 
-  inner_join(datos_reos_reinc %>% select(COD_PERS, EGRESO), by = "COD_PERS")
-
-# 2. Convertir fechas a formato Date
-datos_comparacion <- datos_comparacion %>%
-  mutate(
-    FECHA_ENTREVISTA = as.Date(FECHA_ENTREVISTA),
-    EGRESO = as.Date(EGRESO)
-  )
-
-# 3. Calcular condición y porcentaje 
-datos_comparacion %>%
-  summarise(
-    total_casos = n(),
-    entrevistas_antes = sum(FECHA_ENTREVISTA < EGRESO, na.rm = TRUE),
-    porcentaje = round(entrevistas_antes / total_casos * 100, 2)
-  )
-
-# 38.67 % de las entrevistas fueron antes de EGRESO. Es decir, podemos ocupar datos de 
-length(datos_reos_reinc$COD_PERS) * 0.3867
-# 78550 reos.
+# # 1. Unir ambas bases por COD_PERS
+# datos_comparacion <- base_igi_bin_1_filtrado %>% 
+#   inner_join(datos_reos_reinc %>% select(COD_PERS, EGRESO), by = "COD_PERS")
+# 
+# # 2. Convertir fechas a formato Date
+# datos_comparacion <- datos_comparacion %>%
+#   mutate(
+#     FECHA_ENTREVISTA = as.Date(FECHA_ENTREVISTA),
+#     EGRESO = as.Date(EGRESO)
+#   )
+# 
+# # 3. Calcular condición y porcentaje 
+# datos_comparacion %>%
+#   summarise(
+#     total_casos = n(),
+#     entrevistas_antes = sum(FECHA_ENTREVISTA < EGRESO, na.rm = TRUE),
+#     porcentaje = round(entrevistas_antes / total_casos * 100, 2)
+#   )
+# 
+# # 38.67 % de las entrevistas fueron antes de EGRESO. Es decir, podemos ocupar datos de 
+# length(datos_reos_reinc$COD_PERS) * 0.3867
+# # 78550 reos.
 
 # -------------------- ... -----------------------------------------------------
 # -------------------- ... -----------------------------------------------------
@@ -417,7 +417,6 @@ barrido_param_igi_puntaje_2 <- function(
     window_starts,
     k_clusters = 3,
     min_window_obs = 50,
-    min_cluster_obs = 10,
     distance_method = "binary",
     hclust_method = "ward.D2") {
   
@@ -456,7 +455,10 @@ barrido_param_igi_puntaje_2 <- function(
     
     # Saltar ventanas con pocos datos
     if (nrow(sub_bloque1) < min_window_obs || nrow(sub_bloque2) < min_window_obs
-        || nrow(sub_bloque3) < min_window_obs) next 
+        || nrow(sub_bloque3) < min_window_obs) {
+      message('ventana con muy pocos datos')
+      next
+      } 
     
     # 4. Clusterización
     # matriz_items <- as.matrix(sub_bloque[, descriptivo_grupal])
@@ -508,8 +510,7 @@ barrido_param_igi_puntaje_2 <- function(
   # 11. Retornar resultados estructurados
   list(
     resultados_correlaciones = resultados_cor,
-    resultados_chi2 = resultados_chi2,
-    tablas_contingencia = tablas_contingencia
+    resultados_chi2 = resultados_chi2
   )
 }
 
@@ -517,12 +518,19 @@ barrido_param_igi_puntaje_2 <- function(
 
 # Bucle por característica de delito ---
 
+# 4) Limpiaremos los casos para aislar solo aquellos que corresponden a delitos de
+#   4.1 Robo
+#   4.2 Droga
+#   4.3 Delitos sexuales
+#   4.4 Delitos económicos
+#   4.5 Violencia intrafamiliar
+
 obs_por_delito[order(-obs_por_delito$Casos), ]
 
 print(delitos_lista[7]) # "Robo"
 print(delitos_lista[4]) # "Delitos de Drogas"
-print(delitos_lista[2]) # "Otros Delitos / No Especificado"
-categorias_delitos_input <- c(delitos_lista[7], delitos_lista[4], delitos_lista[2])
+print(delitos_lista[3]) # "Delitos Sexuales"
+categorias_delitos_input <- c(delitos_lista[7], delitos_lista[4], delitos_lista[3])
 
 time_init <- Sys.time()
 barrido_param_1 <- barrido_param_igi_puntaje_2(
@@ -531,12 +539,13 @@ barrido_param_1 <- barrido_param_igi_puntaje_2(
   descriptivo_grupal = descriptivo_grupal, 
   variables_externas = variables_externas,
   window_size = 10,
-  window_starts = seq(10, 20, by = 1)
+  window_starts = seq(0, 30, by = 1),
+  min_window_obs = 10
 )
 time_fin <- Sys.time()
-time_total <- time_fin - time_init  # 1.14 min
+time_total <- time_fin - time_init  # -- seg
 
-str(barrido_param_robo)
+str(barrido_param_1)
 
 barrido_param_1$resultados_correlaciones
 
@@ -557,7 +566,12 @@ png("psy_net_plots/barrido_param_1.png", width = 800*0.9, height = 600*0.9)
 ggplot(cor_long_1, aes(x = inicio_ventana, y = correlacion)) +
   geom_line(color = "blue", size = 1) +
   geom_point(size = 2) +
-  facet_wrap(~ clusters_comparados, ncol = 1) +
+  facet_wrap(~ clusters_comparados, ncol = 1,
+             labeller = labeller(clusters_comparados = c(
+               "cor_cluster1_2" = "Robo y Drogas",
+               "cor_cluster1_3" = "Robo y Sexuales",
+               "cor_cluster2_3" = "Drogas y Sexuales"
+             ))) +
   theme_minimal() + 
   ylim(0, 1) +
   labs(
