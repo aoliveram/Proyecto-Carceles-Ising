@@ -184,6 +184,8 @@ reos_ultimo_egreso <- reos_filtrados %>%
 base_igi_bin_1_filtrado <- base_igi_bin_1_filtrado %>%
   left_join(reos_ultimo_egreso, by = "COD_PERS")
 
+# Nombres columnas
+colnames(base_igi_bin_1_filtrado)
 
 # ------------------------------------------------------------------------------
 # Bootnet - Ventana de 10 puntos  
