@@ -13,6 +13,7 @@
 
 # Sistema
 .DS_Store
+**/.DS_Store
 Thumbs.db
 
 # Datos grandes (>50MB)
