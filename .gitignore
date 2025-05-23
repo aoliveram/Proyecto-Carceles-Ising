@@ -26,6 +26,7 @@ documentos carceles - ising/
 
 # EXCEPCIÓN: seguir esta carpeta específica dentro de la anterior
 !documentos carceles - ising/Datos reos - sensible/
+!documentos carceles - ising/Datos reos - sensible/**
 
 # Ignorar todas las carpetas con un nombre específico en cualquier lugar del proyecto
 #**/nombre_carpeta/
