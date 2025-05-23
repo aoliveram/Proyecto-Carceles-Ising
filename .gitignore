@@ -9,7 +9,7 @@
 *.html
 *.pdf
 *.docx
-*.xlsx
+#*.xlsx
 
 # Sistema
 .DS_Store
@@ -17,7 +17,7 @@ Thumbs.db
 
 # Datos grandes (>50MB)
 #*.csv
-*.rds
+#*.rds
 *.feather
 
 # Carpetas específicas para ignorar
