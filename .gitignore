@@ -22,9 +22,10 @@ Thumbs.db
 
 # Carpetas específicas para ignorar
 papers - notas/
-documentos carceles - ising/
 
-# EXCEPCIÓN: seguir esta carpeta específica dentro de la anterior
+
+# Ignorar todo en la carpeta, excepto la subcarpeta específica
+documentos carceles - ising/*
 !documentos carceles - ising/Datos reos - sensible/
 !documentos carceles - ising/Datos reos - sensible/**
 
