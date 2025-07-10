@@ -7,7 +7,7 @@
 
 # Outputs generados
 *.html
-*.pdf
+#*.pdf
 *.docx
 #*.xlsx
 
