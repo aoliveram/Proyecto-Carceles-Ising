@@ -564,7 +564,7 @@ cor_long_1 <- barrido_param_1$resultados_correlaciones %>%
   )
 
 # Crear gráfico facetado
-png("psy_net_plots/barrido_param_1.png", width = 800*0.9, height = 600*0.9)
+png("psy_net_plots/barrido_param_Rob-Sex-Drog.png", width = 800*0.9, height = 600*0.9)
 ggplot(cor_long_1, aes(x = inicio_ventana, y = correlacion)) +
   geom_line(color = "blue", size = 1) +
   geom_point(size = 2) +
