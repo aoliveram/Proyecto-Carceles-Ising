@@ -1,3 +1,23 @@
+# 1) Limpieza y binarización del IGI (dos esquemas: {3,2,1}/{0} y {3,2}/{1,0}).
+# 2) Cálculo de puntaje_total IGI y descriptivos/plots básicos por riesgo.
+# 3) Estimación de redes Ising globales por esquema (IsingFit); layout y métricas/comunidades.
+# 4) Redes estratificadas por riesgo (bajo, intermedio, alto) y comparación.
+# 5) Barrido por ventanas de puntaje (ancho ~10) con subclusters (k=3): redes por subcluster,
+#    correlación entre grafos, silhouette y puntaje compuesto; chi-cuadrado con variables externas.
+#
+# Archivos que genera (salida principal):
+#  - psy_net_files/base_igi.csv
+#  - psy_net_files/base_igi_ising.csv
+#  - psy_net_files/base_ptje_ising.csv
+#  - psy_net_files/base_igi_bin_1.csv
+#  - psy_net_files/base_igi_bin_2.csv
+#  - psy_net_files/cor_results_sliding_1.csv
+#  - psy_net_files/cor_results_sliding_2.csv
+#  - psy_net_files/chi_results_sliding_1.csv
+#  - psy_net_files/chi_results_sliding_2.csv
+#  - psy_net_files/delitos_unicos_clasificados.rds
+#  - Gráficos varios en psy_net_plots/
+
 library(dplyr)
 library(tidyr)
 library(readxl)

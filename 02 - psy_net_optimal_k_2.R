@@ -1,4 +1,31 @@
 # Barrido paramétrico en ventana puntaje y k, para seleccionar un valor de k óptimo.
+# 1) Realiza un barrido en ventanas de puntaje IGI (tamaño 10) y número de clusters k (2..6). 
+# 2) Para cada ventana y k: clusteriza con distancia binaria (stats::dist, method="binary")
+#    y hclust (Ward.D2), estima redes de Ising por subcluster (IsingFit) y compara redes entre
+#    subclusters con correlación de Pearson (menor = más distintas).
+# 3) Calcula calidad del particionamiento: silhouette (mayor = mejor) y un puntaje
+#    compuesto: composite_score = (1 - silhouette) + mean(pairwise_cor) (menor = mejor).
+# 4) Ejecuta el barrido en paralelo por bloques de ventanas (doParallel) y guarda resultados
+#    intermedios en CSV; además genera heatmaps de mean_cor, silhouette y composite por ventana×k.
+# 5) Repite el análisis para dos esquemas de binarización ({3,2,1},{0}→{0},{1} y {3,2},{0,1}→{0},{1}),
+#    y compara con el pipeline original (k fijo=3) para referencia.
+# 6) Incluye una versión secuencial (no paralela) como alternativa y escribe un CSV agregado
+#    con resultados (optimal_k_grid_*.csv) y gráficos en psy_net_plots/.
+# 7) Notas: (a) "binary" no es Jaccard; si se requiere Jaccard usar vegan::vegdist(..., method="jaccard", binary=TRUE).
+#           (b) Fijar semilla para reproducibilidad y revisar mínimos por cluster/ventana.
+
+# Archivos que genera:
+# - CSV (binarización {3,2,1},{0} → {0},{1}):
+#   psy_net_files/optimal_k_grid_parallel_1.csv … optimal_k_grid_parallel_6.csv
+#   psy_net_files/optimal_k_grid_parallel_all.csv
+# - CSV (binarización {3,2},{0,1} → {0},{1}):
+#   psy_net_files/optimal_k_grid_parallel_2_1.csv … optimal_k_grid_parallel_2_5.csv
+#   psy_net_files/optimal_k_grid_parallel_all_2.csv
+# - CSV (secuencial): psy_net_files/optimal_k_grid_1.csv
+# - PNG (# = 1,2):
+#   psy_net_plots/optimal_k_mean_cor_#.png
+#   psy_net_plots/optimal_k_silhouette_score_#.png
+#   psy_net_plots/optimal_k_composite_score_#.png
 
 # --- Configuración de computación paralela ---
 

@@ -1,3 +1,9 @@
+# evalúa la estabilidad (bootstrap) de una red Ising ya estimada y resume/visualiza la estabilidad de sus conexiones (edges).
+# Genera: psy_net_recidivism_files/estabilidad_bootnet.rds (RDS con resultados de bootnet). 
+# Los gráficos se muestran en pantalla (no se guardan).
+# Genera:
+# - psy_net_recidivism_files/estabilidad_bootnet.rds
+
 ######################################################
 # Esto es lento. No volver a correr hasta version final
 ######################################################

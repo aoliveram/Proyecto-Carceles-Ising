@@ -8,6 +8,11 @@
 #   4.4 Delitos económicos
 #   4.5 Violencia intrafamiliar
 # 5) Seleccionaremos a los reos con casos puros: sin imputaciones de más de 1 delito.
+# Genera: 
+# - psy_net_files/barrido_param_robo.rds 
+# - psy_net_files/barrido_param_1.rds 
+# - psy_net_plots/barrido_param_robo.png
+# - psy_net_plots/barrido_param_Rob-Sex-Drog.png
 
 library(dplyr)
 library(tidyr)

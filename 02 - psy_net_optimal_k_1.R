@@ -1,4 +1,22 @@
 # Vemos la correlación de Pearson para una separación de la red en k=3 clusters.
+# 1) Analiza ventanas deslizantes de 10 puntos del puntaje IGI con k=3 subclusters.
+# 2) Para cada ventana: clusteriza sujetos (distancia binaria con stats::dist y hclust Ward.D2),
+#    estima redes de Ising por subcluster (IsingFit) y compara redes entre subclusters con
+#    correlación de Pearson de las matrices de pesos (menor = más distintas).
+# 3) Calcula silhouette promedio por ventana y un puntaje compuesto (1 - silhouette) + media de
+#    correlaciones entre redes (usado como referencia diagnóstica).
+# 4) Evalúa asociación entre subclusters y variables externas (SEXO, salud mental, edad, estado civil)
+#    mediante tablas de contingencia y pruebas de chi-cuadrado.
+# 5) Exporta resultados a CSV (cor_results_sliding_*.csv, chi_results_sliding_*.csv) y genera gráficos
+#    de evolución y heatmaps en psy_net_plots/.
+# 6) Repite el mismo flujo para dos esquemas de binarización: {3,2,1},{0}->{0},{1} y {3,2},{0,1}->{0},{1}.
+# 7) Notas: (a) "binary" no es Jaccard; si se requiere Jaccard usar vegan::vegdist(..., method="jaccard", binary=TRUE).
+#           (b) El bloque final de análisis por rangos de riesgo depende de objetos definidos en otros scripts.
+
+# Archivos que genera (# = 1,2):
+# - psy_net_files/cor_results_sliding_#.csv
+# - psy_net_files/chi_results_sliding_#.csv
+# - psy_net_plots/cor_evolucion_#.png
 
 library(bootnet)
 library(qgraph)
