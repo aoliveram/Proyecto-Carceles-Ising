@@ -256,9 +256,16 @@ results_grid_parallel_all <- rbind(
   results_grid_parallel_6
 )
 
+# Threshold for overlay markers on correlation heatmaps
+cor_threshold <- 0.7
+overlay_points_1 <- subset(results_grid_parallel_all, !is.na(mean_pears_cor) & mean_pears_cor > cor_threshold)
+
 png("psy_net_plots/optimal_k_mean_cor_1.png", width = 800*1.1, height = 600*1.1)
 ggplot(results_grid_parallel_all, aes(x = start_val, y = k, fill = mean_pears_cor)) +
   geom_tile() +
+  # Mark combinations with mean correlation above threshold
+  geom_point(data = overlay_points_1, aes(x = start_val, y = k),
+             inherit.aes = FALSE, shape = 4, color = "red", stroke = 0.9, size = 1.8) +
   scale_fill_viridis_c(option = "plasma", direction = -1) +
   labs(
     x = "Window Start",
@@ -418,9 +425,15 @@ results_grid_parallel_all_2 <- rbind(
   results_grid_parallel_2_5
 )
 
+# Threshold for overlay markers on correlation heatmaps (second encoding)
+overlay_points_2 <- subset(results_grid_parallel_all_2, !is.na(mean_pears_cor) & mean_pears_cor > cor_threshold)
+
 png("psy_net_plots/optimal_k_mean_cor_2.png", width = 800*1.1, height = 600*1.1)
 ggplot(results_grid_parallel_all_2, aes(x = start_val, y = k, fill = mean_pears_cor)) +
   geom_tile() +
+  # Mark combinations with mean correlation above threshold
+  geom_point(data = overlay_points_2, aes(x = start_val, y = k),
+             inherit.aes = FALSE, shape = 4, color = "red", stroke = 0.9, size = 1.8) +
   scale_fill_viridis_c(option = "plasma", direction = -1) +
   labs(
     x = "Window Start",

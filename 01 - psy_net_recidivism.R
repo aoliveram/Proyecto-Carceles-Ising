@@ -16,7 +16,7 @@
 #  - psy_net_files/chi_results_sliding_1.csv
 #  - psy_net_files/chi_results_sliding_2.csv
 #  - psy_net_files/delitos_unicos_clasificados.rds
-#  - Gráficos varios en psy_net_plots/
+#  - Plots redes en psy_net_plots/
 
 library(dplyr)
 library(tidyr)
@@ -278,7 +278,7 @@ base_proporciones_1 <- as.data.frame(as.table(as.matrix(
 names(base_proporciones_1) <- c("Variable", "PuntajeTotal", "Frecuencia")
 
 # Creamos el mapa de calor con líneas grises entre categorías
-png("psy_net_plots/heatmap_prop_1.png", width = 800, height = 600)
+pdf("psy_net_plots/heatmap_prop_1.pdf", width = 8, height = 6)
 ggplot(base_proporciones_1, aes(x = PuntajeTotal, y = Variable, fill = Frecuencia)) +
   geom_tile() +
   scale_fill_gradient(low = "white", high = "blue") +
@@ -476,7 +476,6 @@ base_igi_bin_ising_2 <- read.csv("psy_net_files/base_igi_bin_ising_2.csv")
 #install.packages("bootnet")
 library(bootnet)
 library(qgraph)
-library(igraph)
 
 verificar_binario(base_igi_bin_ising_1[,descriptivo_grupal]) # Check
 verificar_binario(base_igi_bin_ising_2[,descriptivo_grupal]) 
@@ -615,13 +614,13 @@ matriz_pesos_alto_2 <- red_alto_2$graph
 layout_red <- as.matrix(read.csv("psy_net_plots/plots_redes/layout_red_base_igi_bin.csv"))
 
 # Generarmos los grafos con qgraph para inspección visual de las diferencias
-png("psy_net_plots/plots_redes/red_ptje_1_bin_1_2.png", width = 1000, height = 1000)
+pdf("psy_net_plots/plots_redes/red_ptje_1_bin_1.pdf", width = 10, height = 10)
 qgraph(matriz_pesos_bajo_1, layout = layout_red, title = "Riesgo Bajo {3,2,1},{0} -> {0},{1}")
 dev.off()
-png("psy_net_plots/plots_redes/red_ptje_2_bin_1.png", width = 1000, height = 1000)
+pdf("psy_net_plots/plots_redes/red_ptje_2_bin_1.pdf", width = 10, height = 10)
 qgraph(matriz_pesos_medio_1, layout = layout_red, title = "Riesgo Medio {3,2,1},{0} -> {0},{1}")
 dev.off()
-png("psy_net_plots/plots_redes/red_ptje_3_bin_1.png", width = 1000, height = 1000)
+pdf("psy_net_plots/plots_redes/red_ptje_3_bin_1.pdf", width = 10, height = 10)
 qgraph(matriz_pesos_alto_1, layout = layout_red, title = "Riesgo Alto {3,2,1},{0} -> {0},{1}")
 dev.off()
 
@@ -713,7 +712,7 @@ for (start_val in inicios_ventana) {
   # (c) Seleccionamos las variables de interés
   sub_bloque_items <- sub_bloque[, descriptivo_grupal]
   
-  # (d) Hacemos el Cluster analysis (distancia Jaccard y Ward.D2)
+  # (d) Hacemos el Cluster analysis (distancia binaria y Ward.D2)
   matriz_binaria <- as.matrix(sub_bloque_items)
   distancias <- dist(matriz_binaria, method = "binary") # d= 1 - shared_1's/tatal_1's
   clust_hier <- hclust(distancias, method = "ward.D2") # squared Euclidean distances. To call hclust()
