@@ -1,0 +1,5 @@
+method,distance,k_global
+mode_of_window_optima,binary,2
+mode_of_window_optima,jaccard,2
+min_mean_composite,binary,2
+min_mean_composite,jaccard,2
