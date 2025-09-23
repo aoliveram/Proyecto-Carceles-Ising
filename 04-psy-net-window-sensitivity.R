@@ -29,14 +29,14 @@ set.seed(123)
 
 # Entradas / Salidas base
 input_csv      <- "psy_net_files/base_igi_bin_1.csv"
-root_out_dir <- "psy-net-window-sensitivity"  # carpeta única para todos los resultados
+root_out_dir <- "psy-net-window-sensitivity"  
 
 # Parámetros
-window_sizes          <- 3:4
+window_sizes          <- 3:10
 k_values              <- 2:6
 min_cluster_size      <- 100
 use_trim              <- TRUE
-trim_q                <- c(0.10, 0.90)
+trim_q                <- c(0.00, 1.00)
 analysis_distance_method <- "jaccard" # para seleccionar la ventana representativa por k
 n_cores               <- 8
 use_parallel          <- TRUE
@@ -184,7 +184,8 @@ process_window_kgrid <- function(start_val, w) {
       mean_pears_cor = NA_real_,
       mean_frobenius = NA_real_,
       cluster_sizes = NA_character_,
-      error_message = "Insufficient observations"
+      error_message = "Insufficient observations",
+      cluster_variable_sizes = NA_character_
     ))
   }
   mat_bin <- as.matrix(sub[, descriptivo_grupal, drop = FALSE])
@@ -201,7 +202,8 @@ process_window_kgrid <- function(start_val, w) {
         mean_pears_cor = NA_real_,
         mean_frobenius = NA_real_,
         cluster_sizes = paste(sizes, collapse=", "),
-        error_message = "Cluster too small"
+        error_message = "Cluster too small",
+        cluster_variable_sizes = NA_character_
       ))
     }
     # Redes por subcluster (Ising por cluster de personas)
@@ -224,11 +226,17 @@ process_window_kgrid <- function(start_val, w) {
     }, numeric(1))
     mean_frob <- mean(frobs)
 
+    # Tamaño de grupos de variables (asignación por fuerza absoluta)
+    assign_df <- assign_items_to_subnet(models)
+    var_counts <- sapply(seq_along(models), function(i) sum(assign_df$asignacion == i, na.rm = TRUE))
+    var_counts_str <- paste(as.integer(var_counts), collapse = ", ")
+
     tibble(
       start_val = start_val, end_val = end_val, k = k, distance = dist_name,
       mean_pears_cor = mean_cor,
       mean_frobenius = mean_frob,
       cluster_sizes = paste(sizes, collapse = ", "),
+      cluster_variable_sizes = var_counts_str,
       error_message = NA_character_
     )
   }
@@ -274,8 +282,6 @@ plot_heatmaps_distance <- function(kgrid_w, plots_dir, w) {
     dev.off()
   }
 }
-
-
 
 # -----------------------------------------------------------------------------#
 # Loop principal por tamaños de ventana
@@ -325,7 +331,8 @@ for (w in window_sizes) {
           best_is_k2 = NA,
           mean_pears_cor = NA_real_,
           mean_frobenius = NA_real_,
-          cluster_sizes = NA_character_
+          cluster_sizes = NA_character_,
+          cluster_variable_sizes = NA_character_
         ))
       }
       # Mejor absoluto (incluye k=2) por mean_pears_cor (más bajo = mejor)
@@ -338,7 +345,7 @@ for (w in window_sizes) {
       cand_gt2 <- cand_all %>% dplyr::filter(k > 2)
       if (nrow(cand_gt2) == 0) {
         k_opt <- NA_integer_
-        mcor <- NA_real_; mfrob <- NA_real_; cs <- NA_character_
+        mcor <- NA_real_; mfrob <- NA_real_; cs <- NA_character_; cvs <- NA_character_
       } else {
         best_gt2_row <- cand_gt2 %>%
           dplyr::slice_min(order_by = mean_pears_cor, n = 1, with_ties = TRUE) %>%
@@ -347,6 +354,7 @@ for (w in window_sizes) {
         mcor <- best_gt2_row$mean_pears_cor[1]
         mfrob <- best_gt2_row$mean_frobenius[1]
         cs <- best_gt2_row$cluster_sizes[1]
+        cvs <- best_gt2_row$cluster_variable_sizes[1]
       }
 
       tibble::tibble(
@@ -354,7 +362,8 @@ for (w in window_sizes) {
         best_is_k2 = best_is_k2,
         mean_pears_cor = mcor,
         mean_frobenius = mfrob,
-        cluster_sizes = cs
+        cluster_sizes = cs,
+        cluster_variable_sizes = cvs
       )
     }) %>%
     ungroup()
@@ -480,13 +489,14 @@ for (w in window_sizes) {
     n_vars <- length(var_levels)
     pdf_height <- max(8, min(0.28 * n_vars, 40))
 
-    p_grid <- ggplot(grid_df, aes(x = k, y = Variable, fill = factor(color_id), label = as.character(Variable))) +
-      geom_label(label.size = 0.2, label.padding = grid::unit(0.12, "lines"), show.legend = FALSE) +
+    p_grid <- ggplot(grid_df, aes(x = k, y = Variable, fill = factor(color_id))) +
+      geom_tile(width = 0.85, height = 0.85, show.legend = FALSE) +
       scale_fill_manual(values = pal) +
       scale_x_continuous(breaks = sort(unique(grid_df$k))) +
       scale_y_discrete(limits = var_levels) +
       labs(x = "k (número de subredes)", y = "Variable",
-           title = sprintf("Asignación de variables por k (w=%d, dist=%s)", w, analysis_distance_method)) +
+          title = sprintf("Asignación de variables por k (node assignment by absolute strength) — w=%d, dist=%s", 
+                          w, analysis_distance_method)) +
       theme_minimal()
 
     pdf(file.path(plots_dir, sprintf("clusters_bump_w%d_%s.pdf", w, analysis_distance_method)), width = 14, height = pdf_height)
