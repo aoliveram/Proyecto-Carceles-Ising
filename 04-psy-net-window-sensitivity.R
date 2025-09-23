@@ -1,14 +1,13 @@
 # =============================================================================
 # 05-psy-net-window-sensitivity.R
 # Sensibilidad al tamaño de ventana: window = 3..10
-# - Excluye ítems de baja varianza: HD6 y PAR26
+# - Excluye ítems de baja varianza: HD6 y PAR24
 # - Para cada window:
 #   * Barrido ventana × k (k=2..6) con distancias binary y jaccard
 #   * Guarda CSV/RDS y heatmaps por distancia en carpetas específicas
-#   * Selecciona una ventana representativa por k (mínimo composite con distancia de análisis)
+#   * Selecciona una ventana representativa por k (mínimo mean_pears_cor con distancia de análisis)
 #   * Genera:
 #     - Un heatmap de activación (P10–P90) con etiquetas de ítems coloreadas por asignación a la subred (k-colores)
-#     - Un PDF por k con k componentes (una subred por panel), todos con el mismo layout
 # =============================================================================
 
 suppressPackageStartupMessages({
@@ -19,13 +18,9 @@ suppressPackageStartupMessages({
   library(ggplot2)
   library(viridis)
   library(bootnet)
-  library(qgraph)
-  library(igraph)
   library(cluster)
   library(foreach)
   library(doParallel)
-  library(grid)
-  library(gridExtra)
 })
 
 set.seed(123)
@@ -36,9 +31,9 @@ root_files_dir <- "psy_net_files"
 root_plots_dir <- "psy_net_plots"
 
 # Parámetros
-window_sizes          <- 3:10
+window_sizes          <- 3:4
 k_values              <- 2:6
-min_cluster_size      <- 50          # ajusta si hace falta
+min_cluster_size      <- 100
 use_trim              <- TRUE
 trim_q                <- c(0.10, 0.90)
 analysis_distance_method <- "jaccard" # para seleccionar la ventana representativa por k
@@ -98,9 +93,6 @@ compute_distance_single <- function(mat_bin, method = c("binary","jaccard")) {
   if (method == "binary") compute_distance_binary(mat_bin) else compute_distance_jaccard(mat_bin)
 }
 
-mean_silhouette <- function(cluster_labels, dist_matrix) {
-  as.numeric(mean(cluster::silhouette(cluster_labels, as.dist(dist_matrix))[, "sil_width"]))
-}
 
 node_strength <- function(W) {
   stopifnot(nrow(W) == ncol(W))
@@ -189,8 +181,9 @@ process_window_kgrid <- function(start_val, w) {
       distance = c("binary","jaccard")
     ) %>% mutate(
       start_val = start_val, end_val = end_val,
-      silhouette_score = NA_real_, mean_pears_cor = NA_real_,
-      composite_score = NA_real_, cluster_sizes = NA_character_,
+      mean_pears_cor = NA_real_,
+      mean_frobenius = NA_real_,
+      cluster_sizes = NA_character_,
       error_message = "Insufficient observations"
     ))
   }
@@ -205,27 +198,36 @@ process_window_kgrid <- function(start_val, w) {
     if (any(sizes < min_cluster_size)) {
       return(tibble(
         start_val = start_val, end_val = end_val, k = k, distance = dist_name,
-        silhouette_score = NA_real_, mean_pears_cor = NA_real_,
-        composite_score = NA_real_, cluster_sizes = paste(sizes, collapse=", "),
+        mean_pears_cor = NA_real_,
+        mean_frobenius = NA_real_,
+        cluster_sizes = paste(sizes, collapse=", "),
         error_message = "Cluster too small"
       ))
     }
-    sil <- mean_silhouette(sub$sub_cluster, D_here)
-    # Redes por subcluster
+    # Redes por subcluster (Ising por cluster de personas)
     clusters <- sort(unique(sub$sub_cluster))
     models <- lapply(clusters, function(cc) {
       dat_cc <- sub %>% filter(sub_cluster == cc) %>% select(all_of(descriptivo_grupal))
       bootnet::estimateNetwork(dat_cc, default = "IsingFit", tuning = 0.25)
     })
     pairs <- combn(seq_along(models), 2, simplify = FALSE)
+    # Pearson similarity across networks (lower = more different)
     corrs <- vapply(pairs, function(p) {
       cor(as.vector(models[[p[1]]]$graph), as.vector(models[[p[2]]]$graph), use = "complete.obs")
     }, numeric(1))
     mean_cor <- mean(corrs)
+
+    # Frobenius distance across networks (higher = more different)
+    frobs <- vapply(pairs, function(p) {
+      W1 <- models[[p[1]]]$graph; W2 <- models[[p[2]]]$graph
+      sqrt(sum((W1 - W2)^2, na.rm = TRUE))
+    }, numeric(1))
+    mean_frob <- mean(frobs)
+
     tibble(
       start_val = start_val, end_val = end_val, k = k, distance = dist_name,
-      silhouette_score = sil, mean_pears_cor = mean_cor,
-      composite_score = (1 - sil) + mean_cor,
+      mean_pears_cor = mean_cor,
+      mean_frobenius = mean_frob,
       cluster_sizes = paste(sizes, collapse = ", "),
       error_message = NA_character_
     )
@@ -257,110 +259,22 @@ plot_heatmaps_distance <- function(kgrid_w, plots_dir) {
     )
     dev.off()
 
-    pdf(file.path(plots_dir, sprintf("optimal_k_silhouette_%s.pdf", dist_name)), width = 10, height = 7)
+    # Frobenius heatmap
+    pdf(file.path(plots_dir, sprintf("optimal_k_mean_frobenius_%s.pdf", dist_name)), width = 10, height = 7)
     print(
-      ggplot(kd, aes(x = start_val, y = k, fill = silhouette_score)) +
+      ggplot(kd, aes(x = start_val, y = k, fill = mean_frobenius)) +
         geom_tile() +
-        scale_fill_viridis_c(option = "plasma", direction = -1) +
+        scale_fill_viridis_c(option = "plasma", direction = 1) +
         labs(x = "Window Start (IGI)", y = "k",
-             fill = "Silhouette (higher=better)",
-             title = sprintf("Silhouette by Window × k - %s", dist_name)) +
-        theme_minimal()
-    )
-    dev.off()
-
-    pdf(file.path(plots_dir, sprintf("optimal_k_composite_%s.pdf", dist_name)), width = 10, height = 7)
-    print(
-      ggplot(kd, aes(x = start_val, y = k, fill = composite_score)) +
-        geom_tile() +
-        scale_fill_viridis_c(option = "plasma", direction = -1) +
-        labs(x = "Window Start (IGI)", y = "k",
-             fill = "Composite (lower=better)",
-             title = sprintf("Composite (1 - silhouette) + mean_cor - %s", dist_name)) +
+             fill = "Mean Frobenius (higher=worse)",
+             title = sprintf("Mean Frobenius Distance - %s", dist_name)) +
         theme_minimal()
     )
     dev.off()
   }
 }
 
-# Red con mismo layout para k subredes en una ventana concreta (base graphics)
-plot_k_networks_onepage <- function(models, plot_path, title = NULL) {
-  # Layout: usa matriz de pesos promedio (abs) para fijar posiciones
-  k <- length(models)
-  if (k == 0) return(invisible(NULL))
-  Ws <- lapply(models, function(m) abs(m$graph))
-  W_avg <- Reduce("+", Ws) / k
-  # qgraph en modo 'DoNotPlot' para calcular layout común
-  q0 <- qgraph::qgraph(W_avg, DoNotPlot = TRUE)
-  coords <- q0$layout
 
-  # Abrir dispositivo PDF y dibujar con base graphics en paneles
-  pdf(plot_path, width = 3.5 * k, height = 4.2)
-  old_par <- graphics::par(no.readonly = TRUE)
-  on.exit({
-    graphics::par(old_par)
-    dev.off()
-  }, add = TRUE)
-  graphics::par(mfrow = c(1, k), mar = c(1, 1, 1, 1), oma = c(0, 0, 2, 0))
-
-  for (i in seq_along(models)) {
-    ok <- TRUE
-    tryCatch({
-      qgraph::qgraph(models[[i]]$graph,
-                     layout = coords,
-                     labels = colnames(models[[i]]$graph),
-                     label.cex = 0.6,
-                     edge.color = "grey50",
-                     color = "skyblue",
-                     vsize = 4,
-                     esize = 3,
-                     details = FALSE)
-    }, error = function(e) {
-      ok <<- FALSE
-    })
-    if (!ok) {
-      plot.new(); box(); title(main = "(panel vacío)", cex.main = 0.8)
-    }
-  }
-  if (!is.null(title)) graphics::mtext(title, outer = TRUE, line = 0.1, font = 2)
-}
-
-# Heatmap de activación con etiquetas coloreadas por asignación a subred (para k seleccionado)
-plot_activation_colored_by_assignment <- function(base_trim, items, assign_df, plots_dir, w, k_sel, start_sel, end_sel) {
-  prop_df <- compute_activation_df(base_trim[, items, drop = FALSE], base_trim$puntaje_total, items)
-  # Colores por asignación
-  k <- max(assign_df$asignacion, na.rm = TRUE)
-  pal <- scales::hue_pal()(k)
-  col_map <- setNames(pal, as.character(seq_len(k)))
-  label_map <- assign_df %>%
-    mutate(label = ifelse(is.na(asignacion),
-                          Variable,
-                          paste0("<span style='color:", col_map[as.character(asignacion)], ";'>", Variable, "</span>"))) %>%
-    select(Variable, label)
-  # Ordena por asignación y por rango de proporción
-  var_info <- prop_df %>%
-    group_by(Variable) %>%
-    summarise(range_prop = max(Proporcion, na.rm = TRUE) - min(Proporcion, na.rm = TRUE), .groups = "drop") %>%
-    left_join(assign_df, by = c("Variable")) %>%
-    arrange(asignacion, desc(range_prop))
-  prop_df2 <- prop_df %>%
-    left_join(label_map, by = "Variable") %>%
-    mutate(Variable = factor(Variable, levels = var_info$Variable))
-
-  pdf(file.path(plots_dir, sprintf("heatmap_prop_by_assignment_w%d_k%d_start%d_end%d.pdf", w, k_sel, start_sel, end_sel)),
-      width = 11, height = 8.5)
-  print(
-    ggplot(prop_df2, aes(x = PuntajeTotal, y = label, fill = Proporcion)) +
-      geom_tile() +
-      scale_fill_gradient(low = "white", high = "blue") +
-      labs(title = sprintf("Proporción de activación (IGI %d–%d), etiquetas por subred (k=%d)", min(base_trim$puntaje_total), max(base_trim$puntaje_total), k_sel),
-           x = "Puntaje IGI", y = "Ítem", fill = "Proporción") +
-      theme_minimal() +
-      theme(axis.text.y = ggtext::element_markdown(),
-            axis.text.x = element_text(angle = 45, hjust = 1))
-  )
-  dev.off()
-}
 
 # -----------------------------------------------------------------------------#
 # Loop principal por tamaños de ventana
@@ -371,6 +285,7 @@ if (use_parallel) {
   registerDoParallel(cl)
 }
 
+time_init_all <- Sys.time()
 for (w in window_sizes) {
   message(sprintf("=== window = %d ===", w))
   files_dir <- file.path(root_files_dir, sprintf("files_window_%d", w))
@@ -386,59 +301,81 @@ for (w in window_sizes) {
     kgrid_w <- foreach(v = start_vals, .combine = "rbind",
                        .packages = c("dplyr","tibble","tidyr","purrr","bootnet","cluster"),
                        .export = c("base_trim","descriptivo_grupal","k_values","min_cluster_size",
-                                   "compute_distance_binary","compute_distance_jaccard","process_window_kgrid",
-                                   "mean_silhouette")) %dopar% {
+                                   "compute_distance_binary","compute_distance_jaccard","process_window_kgrid")) %dopar% {
       process_window_kgrid(v, w)
     }
   } else {
     kgrid_w <- map_dfr(start_vals, ~process_window_kgrid(.x, w))
   }
   time_fin <- Sys.time()
-  message(sprintf("k-grid (w=%d) listo en %s", w, as.character(difftime(time_fin, time_init, units = "auto"))))
+  message(sprintf("k-grid (w=%d) listo en %s", w, as.character(difftime(time_fin, time_init))))
 
   kgrid_w <- as_tibble(kgrid_w)
   safe_write(kgrid_w, file.path(files_dir, "optimal_k_grid_by_window"))
 
-  # k óptimo por ventana y k global sugeridos (por distancia)
+  # k óptimo por ventana y k>2 (criterio: mean_pears_cor más bajo); además marcar si el mejor absoluto habría sido k=2
   opt_by_win <- kgrid_w %>%
     group_by(distance, start_val, end_val) %>%
-    filter(!is.na(composite_score)) %>%
-    slice_min(order_by = composite_score, n = 1, with_ties = TRUE) %>%
-    mutate(k_opt = k) %>%
-    select(distance, start_val, end_val, k_opt, silhouette_score, mean_pears_cor, composite_score, cluster_sizes) %>%
+    group_modify(~{
+      cand_all <- dplyr::filter(.x, !is.na(mean_pears_cor))
+      if (nrow(cand_all) == 0) {
+        return(tibble::tibble(
+          k_opt = NA_integer_,
+          best_is_k2 = NA,
+          mean_pears_cor = NA_real_,
+          mean_frobenius = NA_real_,
+          cluster_sizes = NA_character_
+        ))
+      }
+      # Mejor absoluto (incluye k=2) por mean_pears_cor (más bajo = mejor)
+      best_overall_row <- cand_all %>%
+        dplyr::slice_min(order_by = mean_pears_cor, n = 1, with_ties = TRUE) %>%
+        dplyr::slice(1)
+      best_is_k2 <- best_overall_row$k[1] == 2
+
+      # Mejor entre k > 2
+      cand_gt2 <- cand_all %>% dplyr::filter(k > 2)
+      if (nrow(cand_gt2) == 0) {
+        k_opt <- NA_integer_
+        mcor <- NA_real_; mfrob <- NA_real_; cs <- NA_character_
+      } else {
+        best_gt2_row <- cand_gt2 %>%
+          dplyr::slice_min(order_by = mean_pears_cor, n = 1, with_ties = TRUE) %>%
+          dplyr::slice(1)
+        k_opt <- best_gt2_row$k[1]
+        mcor <- best_gt2_row$mean_pears_cor[1]
+        mfrob <- best_gt2_row$mean_frobenius[1]
+        cs <- best_gt2_row$cluster_sizes[1]
+      }
+
+      tibble::tibble(
+        k_opt = k_opt,
+        best_is_k2 = best_is_k2,
+        mean_pears_cor = mcor,
+        mean_frobenius = mfrob,
+        cluster_sizes = cs
+      )
+    }) %>%
     ungroup()
   safe_write(opt_by_win, file.path(files_dir, "optimal_k_by_window"))
-
-  opt_summary <- bind_rows(
-    opt_by_win %>%
-      count(distance, k_opt, name = "freq") %>%
-      group_by(distance) %>%
-      slice_max(order_by = freq, n = 1, with_ties = TRUE) %>%
-      summarise(distance = first(distance), k_global = paste(sort(k_opt), collapse="/"), method = "mode_of_window_optima", .groups = "drop"),
-    kgrid_w %>%
-      group_by(distance, k) %>%
-      summarise(mean_composite = mean(composite_score, na.rm = TRUE), .groups = "drop") %>%
-      group_by(distance) %>%
-      slice_min(order_by = mean_composite, n = 1, with_ties = TRUE) %>%
-      summarise(distance = first(distance), k_global = paste(sort(k), collapse="/"), method = "min_mean_composite", .groups = "drop")
-  ) %>% select(method, distance, k_global)
-  safe_write(opt_summary, file.path(files_dir, "optimal_k_global_summary"))
 
   # Heatmaps por distancia
   plot_heatmaps_distance(kgrid_w, plots_dir)
 
   # Para los plots avanzados (heatmap coloreado por asignación y redes por k),
   # elegimos una ventana "representativa" por k con la distancia de análisis:
-  # - Tomamos la ventana con composite mínimo para (distance=analysis_distance_method, k fijo).
+  # - Tomamos la ventana con mean_pears_cor mínimo para (distance=analysis_distance_method, k fijo).
   kd_sel <- kgrid_w %>% filter(distance == analysis_distance_method)
 
+  # --- NUEVO: Construcción de asignaciones por k y bump chart por w ---
+  # 1) Recolecta asignaciones Variable->cluster_raw para cada k (usando la ventana representativa por k)
+  assignments_list <- list()
   for (k_sel in k_values) {
-    cand <- kd_sel %>% filter(k == k_sel, !is.na(composite_score))
+    cand <- kd_sel %>% filter(k == k_sel, !is.na(mean_pears_cor))
     if (nrow(cand) == 0) next
-    row_best <- cand %>% slice_min(order_by = composite_score, n = 1, with_ties = TRUE) %>% slice(1)
+    row_best <- cand %>% slice_min(order_by = mean_pears_cor, n = 1, with_ties = TRUE) %>% slice(1)
     start_sel <- row_best$start_val[1]; end_sel <- row_best$end_val[1]
 
-    # Estimar subredes en la ventana seleccionada
     sub <- base_trim %>% filter(puntaje_total >= start_sel, puntaje_total <= end_sel)
     if (nrow(sub) < min_cluster_size) next
 
@@ -455,23 +392,103 @@ for (w in window_sizes) {
     })
     names(models) <- paste0("c", clusters)
 
-    # 4.a Heatmap de activación con etiquetas coloreadas por asignación a subred (k colores)
     assign_df <- assign_items_to_subnet(models)
-    # Asegura el nombre de columna consistente para join posteriores
     if ("node" %in% names(assign_df) && !("Variable" %in% names(assign_df))) {
       assign_df <- dplyr::rename(assign_df, Variable = node)
     }
-    plot_activation_colored_by_assignment(
-      base_trim = base_trim, items = descriptivo_grupal, assign_df = assign_df,
-      plots_dir = plots_dir, w = w, k_sel = k_sel, start_sel = start_sel, end_sel = end_sel
-    )
+    assignments_list[[as.character(k_sel)]] <- assign_df %>%
+      dplyr::transmute(Variable, k = k_sel, cluster_raw = asignacion)
+  }
 
-    # 5. Un único PDF con k componentes (k subredes), mismo layout
-    plot_k_networks_onepage(
-      models = models,
-      plot_path = file.path(plots_dir, sprintf("networks_k%d_w%d_start%d_end%d.pdf", k_sel, w, start_sel, end_sel)),
-      title = sprintf("k=%d (w=%d) | ventana [%d,%d] | distancia=%s", k_sel, w, start_sel, end_sel, analysis_distance_method)
-    )
+  # 2) Alinea clusters entre k sucesivos para obtener ids de color estables (herederos por máxima coincidencia)
+  align_colors <- function(df_list) {
+    ks <- sort(as.integer(names(df_list)))
+    if (length(ks) == 0) return(NULL)
+    # mapa: lista por k con vector nombres=cluster_raw, valores=color_id
+    color_maps <- list()
+
+    k0 <- ks[1]
+    # colores iniciales: 1..k0
+    init_clusters <- sort(unique(df_list[[as.character(k0)]]$cluster_raw))
+    color_maps[[as.character(k0)]] <- setNames(seq_along(init_clusters), init_clusters)
+    next_color_id <- length(init_clusters) + 1
+
+    for (idx in 2:length(ks)) {
+      k_prev <- ks[idx-1]; k_cur <- ks[idx]
+      prev_df <- df_list[[as.character(k_prev)]]
+      cur_df  <- df_list[[as.character(k_cur)]]
+      prev_map <- color_maps[[as.character(k_prev)]]
+
+      prev_clusters <- sort(unique(prev_df$cluster_raw))
+      cur_clusters  <- sort(unique(cur_df$cluster_raw))
+
+      # tabla de coincidencias |prev ∩ cur|
+      tab <- table(factor(prev_df$cluster_raw, levels = prev_clusters),
+                   factor(cur_df$cluster_raw,  levels = cur_clusters))[ , , drop = FALSE]
+
+      # greedy matching por mayor solapamiento, uno-a-uno
+      assigned_prev <- setNames(rep(FALSE, length(prev_clusters)), prev_clusters)
+      assigned_cur  <- setNames(rep(FALSE, length(cur_clusters)),  cur_clusters)
+      cur_color_map <- setNames(rep(NA_integer_, length(cur_clusters)), cur_clusters)
+
+      overlaps <- as.data.frame(as.table(tab), stringsAsFactors = FALSE)
+      names(overlaps) <- c("prev","cur","n")
+      overlaps <- overlaps[order(-overlaps$n), ]
+      for (r in seq_len(nrow(overlaps))) {
+        pv <- as.character(overlaps$prev[r])
+        cu <- as.character(overlaps$cur[r])
+        if (overlaps$n[r] <= 0) break
+        if (!assigned_prev[pv] && !assigned_cur[cu]) {
+          cur_color_map[cu] <- prev_map[[pv]]
+          assigned_prev[pv] <- TRUE
+          assigned_cur[cu]  <- TRUE
+        }
+      }
+      # clusters actuales no asignados reciben colores nuevos
+      for (cu in names(cur_color_map)) {
+        if (is.na(cur_color_map[cu])) {
+          cur_color_map[cu] <- next_color_id
+          next_color_id <- next_color_id + 1
+        }
+      }
+      color_maps[[as.character(k_cur)]] <- cur_color_map
+    }
+
+    # Construye salida larga Variable-k-color_id
+    out <- dplyr::bind_rows(lapply(ks, function(kk){
+      dkk <- df_list[[as.character(kk)]]
+      cmap <- color_maps[[as.character(kk)]]
+      dkk$color_id <- unname(cmap[as.character(dkk$cluster_raw)])
+      dkk
+    }))
+    out
+  }
+
+  assignments_long <- align_colors(assignments_list)
+  if (!is.null(assignments_long) && nrow(assignments_long) > 0) {
+    # 3) Bump chart: una burbuja por color_id y k (tamaño = # variables), líneas conectando color_id a través de k
+    bubbles <- assignments_long %>%
+      dplyr::group_by(k, color_id) %>%
+      dplyr::summarise(n_vars = dplyr::n(), .groups = "drop")
+
+    # paleta estable según número total de colores usados
+    n_colors <- length(unique(bubbles$color_id))
+    pal <- scales::hue_pal()(max(n_colors, 1))
+
+    p_bump <- ggplot(bubbles, aes(x = k, y = color_id, group = color_id, color = factor(color_id))) +
+      geom_line(alpha = 0.6) +
+      geom_point(aes(size = n_vars)) +
+      scale_size_continuous(range = c(3, 10)) +
+      scale_color_manual(values = pal) +
+      scale_y_continuous(breaks = sort(unique(bubbles$color_id))) +
+      labs(x = "k (número de subredes)", y = "ID de color (herencia de cluster)",
+           color = "Cluster (color)", size = "# variables",
+           title = sprintf("Evolución de burbujas de variables por k (w=%d, dist=%s)", w, analysis_distance_method)) +
+      theme_minimal()
+
+    pdf(file.path(plots_dir, sprintf("clusters_bump_w%d_%s.pdf", w, analysis_distance_method)), width = 11, height = 7)
+    print(p_bump)
+    dev.off()
   }
 
   message(sprintf("Archivos de w=%d en:\n- %s\n- %s", w, files_dir, plots_dir))
@@ -479,5 +496,5 @@ for (w in window_sizes) {
 
 if (use_parallel) try(parallel::stopCluster(cl), silent = TRUE)
 
-message("Listo. Sensibilidad por tamaños de ventana completada.")
-
+time_fin_all <- Sys.time()
+time_tot_all <- time_fin_all - time_init_all
