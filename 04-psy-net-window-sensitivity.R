@@ -29,8 +29,7 @@ set.seed(123)
 
 # Entradas / Salidas base
 input_csv      <- "psy_net_files/base_igi_bin_1.csv"
-root_files_dir <- "psy_net_files"
-root_plots_dir <- "psy_net_plots"
+root_out_dir <- "psy-net-window-sensitivity"  # carpeta única para todos los resultados
 
 # Parámetros
 window_sizes          <- 3:4
@@ -61,7 +60,6 @@ descriptivo_grupal <- setdiff(descriptivo_grupal_all, drop_items)
 # Utilidades
 safe_write <- function(df, basepath) {
   readr::write_csv(df, paste0(basepath, ".csv"))
-  saveRDS(df, paste0(basepath, ".rds"))
 }
 
 # Distancias para clustering (vectorizadas rápidas)
@@ -248,7 +246,7 @@ plot_heatmaps_distance <- function(kgrid_w, plots_dir, w) {
     overlay_pts <- kd %>% filter(!is.na(mean_pears_cor), mean_pears_cor > cor_threshold)
     window_size <- unique(kd$end_val - kd$start_val + 1)
 
-    pdf(file.path(plots_dir, sprintf("optimal_k_mean_cor_%s.pdf", dist_name)), width = 10, height = 7)
+    pdf(file.path(plots_dir, sprintf("optimal_k_mean_cor_w%d_%s.pdf", w, dist_name)), width = 10, height = 7)
     print(
       ggplot(kd, aes(x = start_val, y = k, fill = mean_pears_cor)) +
         geom_tile() +
@@ -263,7 +261,7 @@ plot_heatmaps_distance <- function(kgrid_w, plots_dir, w) {
     dev.off()
 
     # Frobenius heatmap
-    pdf(file.path(plots_dir, sprintf("optimal_k_mean_frobenius_%s.pdf", dist_name)), width = 10, height = 7)
+    pdf(file.path(plots_dir, sprintf("optimal_k_mean_frobenius_w%d_%s.pdf", w, dist_name)), width = 10, height = 7)
     print(
       ggplot(kd, aes(x = start_val, y = k, fill = mean_frobenius)) +
         geom_tile() +
@@ -291,10 +289,10 @@ if (use_parallel) {
 time_init_all <- Sys.time()
 for (w in window_sizes) {
   message(sprintf("=== window = %d ===", w))
-  files_dir <- file.path(root_files_dir, sprintf("files_window_%d", w))
-  plots_dir <- file.path(root_plots_dir, sprintf("plots_window_%d", w))
-  dir.create(files_dir, showWarnings = FALSE, recursive = TRUE)
-  dir.create(plots_dir, showWarnings = FALSE, recursive = TRUE)
+  out_dir <- root_out_dir
+  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  files_dir <- out_dir
+  plots_dir <- out_dir
 
   start_vals <- seq(from = lo, to = hi - w + 1, by = 1)
 
@@ -314,7 +312,7 @@ for (w in window_sizes) {
   message(sprintf("k-grid (w=%d) listo en %s", w, as.character(difftime(time_fin, time_init))))
 
   kgrid_w <- as_tibble(kgrid_w)
-  safe_write(kgrid_w, file.path(files_dir, "optimal_k_grid_by_window"))
+  safe_write(kgrid_w, file.path(files_dir, sprintf("optimal_k_grid_by_window_w%d", w)))
 
   # k óptimo por ventana y k>2 (criterio: mean_pears_cor más bajo); además marcar si el mejor absoluto habría sido k=2
   opt_by_win <- kgrid_w %>%
@@ -360,7 +358,7 @@ for (w in window_sizes) {
       )
     }) %>%
     ungroup()
-  safe_write(opt_by_win, file.path(files_dir, "optimal_k_by_window"))
+  safe_write(opt_by_win, file.path(files_dir, sprintf("optimal_k_by_window_w%d", w)))
 
   # Heatmaps por distancia
   plot_heatmaps_distance(kgrid_w, plots_dir, w)
@@ -496,7 +494,7 @@ for (w in window_sizes) {
     dev.off()
   }
 
-  message(sprintf("Archivos de w=%d en:\n- %s\n- %s", w, files_dir, plots_dir))
+  message(sprintf("Archivos de w=%d en: %s", w, out_dir))
 }
 
 if (use_parallel) try(parallel::stopCluster(cl), silent = TRUE)
