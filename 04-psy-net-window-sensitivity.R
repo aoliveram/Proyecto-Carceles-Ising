@@ -21,6 +21,8 @@ suppressPackageStartupMessages({
   library(cluster)
   library(foreach)
   library(doParallel)
+  library(scales)
+  library(grid)
 })
 
 set.seed(123)
@@ -239,11 +241,12 @@ process_window_kgrid <- function(start_val, w) {
 }
 
 # Ploteo: heatmaps por distancia
-plot_heatmaps_distance <- function(kgrid_w, plots_dir) {
+plot_heatmaps_distance <- function(kgrid_w, plots_dir, w) {
   for (dist_name in c("binary","jaccard")) {
     kd <- kgrid_w %>% filter(distance == dist_name)
     if (nrow(kd) == 0) next
     overlay_pts <- kd %>% filter(!is.na(mean_pears_cor), mean_pears_cor > cor_threshold)
+    window_size <- unique(kd$end_val - kd$start_val + 1)
 
     pdf(file.path(plots_dir, sprintf("optimal_k_mean_cor_%s.pdf", dist_name)), width = 10, height = 7)
     print(
@@ -254,7 +257,7 @@ plot_heatmaps_distance <- function(kgrid_w, plots_dir) {
         scale_fill_viridis_c(option = "plasma", direction = -1) +
         labs(x = "Window Start (IGI)", y = "k",
              fill = "Mean Corr (lower=better)",
-             title = sprintf("Mean Pearson Correlation - %s", dist_name)) +
+             title = sprintf("Mean Pearson Correlation - %s | Window size = %d", dist_name, window_size)) +
         theme_minimal()
     )
     dev.off()
@@ -267,7 +270,7 @@ plot_heatmaps_distance <- function(kgrid_w, plots_dir) {
         scale_fill_viridis_c(option = "plasma", direction = 1) +
         labs(x = "Window Start (IGI)", y = "k",
              fill = "Mean Frobenius (higher=worse)",
-             title = sprintf("Mean Frobenius Distance - %s", dist_name)) +
+             title = sprintf("Mean Frobenius Distance - %s | Window size = %d", dist_name, window_size)) +
         theme_minimal()
     )
     dev.off()
@@ -360,7 +363,7 @@ for (w in window_sizes) {
   safe_write(opt_by_win, file.path(files_dir, "optimal_k_by_window"))
 
   # Heatmaps por distancia
-  plot_heatmaps_distance(kgrid_w, plots_dir)
+  plot_heatmaps_distance(kgrid_w, plots_dir, w)
 
   # Para los plots avanzados (heatmap coloreado por asignación y redes por k),
   # elegimos una ventana "representativa" por k con la distancia de análisis:
@@ -466,28 +469,30 @@ for (w in window_sizes) {
 
   assignments_long <- align_colors(assignments_list)
   if (!is.null(assignments_long) && nrow(assignments_long) > 0) {
-    # 3) Bump chart: una burbuja por color_id y k (tamaño = # variables), líneas conectando color_id a través de k
-    bubbles <- assignments_long %>%
-      dplyr::group_by(k, color_id) %>%
-      dplyr::summarise(n_vars = dplyr::n(), .groups = "drop")
+    # Orden estable de variables (todas en el eje Y)
+    var_levels <- sort(unique(assignments_long$Variable))
+    grid_df <- assignments_long %>%
+      dplyr::mutate(Variable = factor(Variable, levels = var_levels))
 
-    # paleta estable según número total de colores usados
-    n_colors <- length(unique(bubbles$color_id))
+    # Paleta estable por color_id
+    n_colors <- length(unique(grid_df$color_id))
     pal <- scales::hue_pal()(max(n_colors, 1))
 
-    p_bump <- ggplot(bubbles, aes(x = k, y = color_id, group = color_id, color = factor(color_id))) +
-      geom_line(alpha = 0.6) +
-      geom_point(aes(size = n_vars)) +
-      scale_size_continuous(range = c(3, 10)) +
-      scale_color_manual(values = pal) +
-      scale_y_continuous(breaks = sort(unique(bubbles$color_id))) +
-      labs(x = "k (número de subredes)", y = "ID de color (herencia de cluster)",
-           color = "Cluster (color)", size = "# variables",
-           title = sprintf("Evolución de burbujas de variables por k (w=%d, dist=%s)", w, analysis_distance_method)) +
+    # Alto del PDF en función del # de variables (con límites razonables)
+    n_vars <- length(var_levels)
+    pdf_height <- max(8, min(0.28 * n_vars, 40))
+
+    p_grid <- ggplot(grid_df, aes(x = k, y = Variable, fill = factor(color_id), label = as.character(Variable))) +
+      geom_label(label.size = 0.2, label.padding = grid::unit(0.12, "lines"), show.legend = FALSE) +
+      scale_fill_manual(values = pal) +
+      scale_x_continuous(breaks = sort(unique(grid_df$k))) +
+      scale_y_discrete(limits = var_levels) +
+      labs(x = "k (número de subredes)", y = "Variable",
+           title = sprintf("Asignación de variables por k (w=%d, dist=%s)", w, analysis_distance_method)) +
       theme_minimal()
 
-    pdf(file.path(plots_dir, sprintf("clusters_bump_w%d_%s.pdf", w, analysis_distance_method)), width = 11, height = 7)
-    print(p_bump)
+    pdf(file.path(plots_dir, sprintf("clusters_bump_w%d_%s.pdf", w, analysis_distance_method)), width = 14, height = pdf_height)
+    print(p_grid)
     dev.off()
   }
 
@@ -498,3 +503,4 @@ if (use_parallel) try(parallel::stopCluster(cl), silent = TRUE)
 
 time_fin_all <- Sys.time()
 time_tot_all <- time_fin_all - time_init_all
+print(time_tot_all)
