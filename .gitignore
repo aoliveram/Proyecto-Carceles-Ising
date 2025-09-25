@@ -10,6 +10,7 @@
 #*.pdf
 *.docx
 #*.xlsx
+*rtf
 
 # Sistema
 .DS_Store
@@ -25,9 +26,9 @@ Thumbs.db
 papers - notas/
 
 # Archivos de datos sensibles
-Datos reos - sensible/*.xlsx
-Datos reos - sensible/*.csv
-Datos reos - sensible/*.rds
+documentos carceles - ising/Datos reos - sensible/*.xlsx
+documentos carceles - ising/Datos reos - sensible/*.csv
+documentos carceles - ising/Datos reos - sensible/*.rds
 
 # Ignorar todo en la carpeta, excepto la subcarpeta específica
 # documentos carceles - ising/*
