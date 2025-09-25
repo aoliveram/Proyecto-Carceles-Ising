@@ -24,6 +24,7 @@ Thumbs.db
 
 # Carpetas específicas para ignorar
 papers - notas/
+documentos carceles - ising/Burocracia
 
 # Archivos de datos sensibles
 documentos carceles - ising/Datos reos - sensible/*.xlsx
