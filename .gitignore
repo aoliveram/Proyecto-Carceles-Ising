@@ -24,11 +24,15 @@ Thumbs.db
 # Carpetas específicas para ignorar
 papers - notas/
 
+# Archivos de datos sensibles
+Datos reos - sensible/*.xlsx
+Datos reos - sensible/*.csv
+Datos reos - sensible/*.rds
 
 # Ignorar todo en la carpeta, excepto la subcarpeta específica
-documentos carceles - ising/*
-!documentos carceles - ising/Datos reos - sensible/
-!documentos carceles - ising/Datos reos - sensible/**
+# documentos carceles - ising/*
+# !documentos carceles - ising/Datos reos - sensible/
+# !documentos carceles - ising/Datos reos - sensible/**
 
 # Ignorar todas las carpetas con un nombre específico en cualquier lugar del proyecto
 #**/nombre_carpeta/
