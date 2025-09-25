@@ -29,6 +29,8 @@ papers - notas/
 documentos carceles - ising/Datos reos - sensible/*.xlsx
 documentos carceles - ising/Datos reos - sensible/*.csv
 documentos carceles - ising/Datos reos - sensible/*.rds
+documentos carceles - ising/*.pdf
+documentos carceles - ising/*.pptx
 
 # Ignorar todo en la carpeta, excepto la subcarpeta específica
 # documentos carceles - ising/*
