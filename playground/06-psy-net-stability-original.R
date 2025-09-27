@@ -1,12 +1,11 @@
 # ======================================================================
-# 06-psy-net-stability.R  (solo ENLACES)
-# Estabilidad de "enlaces" con partición de personas fija
-# - Recorre TODAS las ventanas dentro de [trim_q] del puntaje IGI
-# - Escojo w=5 fijo, k=3 fijo
+# 06-psy-net-stability.R
+# Estabilidad de "grupos de variables" con partición de personas fija
+# - Recorre TODAS las ventanas dentro de [P10,P90] del puntaje IGI
+# - w fijo (e.g., 5), k en 2:4
 # - B réplicas bootstrap por subgrupo (paralelo FORK por réplica)
-# - OUTPUTS:
-#   * edge_stability_w{w}_k{k}.pdf  (todas las ventanas, top-25 por subred/ventana)
-#   * edge_stability_w{w}_k{k}.csv  (TODAS las aristas por subred/ventana, con stats)
+# - Métricas: p_hat(v), co-asignación, ARI medio + IC (por ventana)
+# - Plots: UN PDF por (w,k), con k filas (subredes) x columnas=ventanas (top-25 por celda)
 # - Salida: psy-net-stability/
 # ======================================================================
 
@@ -22,6 +21,7 @@ suppressPackageStartupMessages({
   library(parallel)
   library(doParallel)
   library(foreach)
+  library(mclust)      # adjustedRandIndex
   library(stringr)
 })
 
@@ -46,15 +46,15 @@ descriptivo_grupal_all <- c(
 drop_items <- c("HD6","PAR24")
 descriptivo_grupal <- setdiff(descriptivo_grupal_all, drop_items)
 
-# Parámetros del estudio (mantengo los del último script que compartiste)
-w                 <- 5            #3:10
-k_values          <- 3            #2:4
-B                 <- 1000          # nº de réplicas bootstrap (ajusta si hace falta)
+# Parámetros del estudio
+w                 <- 5
+k_values          <- 2:4
+B                 <- 500               # nº de réplicas bootstrap (ajusta si hace falta)
 min_cluster_size  <- 100
-analysis_distance <- "binary"     # "binary" o "jaccard"
-trim_q            <- c(0.25, 0.75)  # percentiles para recorte de IGI
+analysis_distance <- "binary"         # "jaccard" o "binary"
+trim_q            <- c(0.25, 0.75)     # percentiles para recorte de IGI
 
-# Paralelo: FORK para réplicas; ventanas en serie (sin cambios)
+# Paralelo (sin cambios): FORK para réplicas y ensamblaje; ventanas en serie
 n_cores           <- 8
 cluster_type      <- ifelse(.Platform$OS.type == "unix", "FORK", "PSOCK")
 
@@ -77,14 +77,19 @@ compute_distance_single <- function(mat_bin, method = c("binary","jaccard")) {
   method <- match.arg(method)
   if (method == "binary") compute_distance_binary(mat_bin) else compute_distance_jaccard(mat_bin)
 }
+upper_tri_vec <- function(W) {
+  ut <- upper.tri(W, diag = FALSE)
+  as.numeric(W[ut])
+}
 node_strength_abs <- function(W) rowSums(abs(W), na.rm = TRUE)
 
 assign_items_by_strength <- function(models_list) {
+  # models_list: lista de objetos estimateNetwork (uno por subgrupo)
   S <- sapply(models_list, function(m) node_strength_abs(m$graph))
   if (is.null(dim(S))) S <- matrix(S, ncol = 1)
   rn <- rownames(models_list[[1]]$graph)
   if (is.null(rn)) rn <- paste0("V", seq_len(nrow(models_list[[1]]$graph)))
-  asign <- max.col(S, ties.method = "first")
+  asign <- max.col(S, ties.method = "first") # argmax por fila
   tibble(Variable = rn, group = asign)
 }
 
@@ -94,37 +99,19 @@ drop_zero_variance <- function(df) {
   list(df = df[ , !zs, drop = FALSE], dropped = names(df)[zs])
 }
 
-# Cuantiles tolerantes a NA
-q_na <- function(x, prob) {
-  if (all(is.na(x))) return(NA_real_)
-  as.numeric(stats::quantile(x, prob, na.rm = TRUE, names = FALSE))
+# Compute node strengths for a graph, filling missing items with 0
+strength_from_graph <- function(W, all_items) {
+  s <- rowSums(abs(W), na.rm = TRUE)
+  out <- setNames(rep(0, length(all_items)), all_items)
+  nm <- names(s); if (is.null(nm)) nm <- rownames(W)
+  out[nm] <- s
+  out
 }
 
-# Estadísticos de una arista a partir de B grafos bootstrap (lista de matrices Wb)
-edge_boot_stats <- function(W_boot_list, n1, n2) {
-  w_b <- vapply(W_boot_list, function(Wb) {
-    rn <- rownames(Wb); cn <- colnames(Wb)
-    if (is.null(rn)) rn <- colnames(Wb)
-    if (is.null(cn)) cn <- rownames(Wb)
-    if (!(n1 %in% rn && n2 %in% cn)) return(NA_real_)
-    as.numeric(Wb[n1, n2])
-  }, numeric(1))
-  present <- sum(!is.na(w_b))
-  total   <- length(w_b)
-  nonzero <- sum(abs(w_b) > 0, na.rm = TRUE)
-  pos     <- sum(w_b > 0, na.rm = TRUE)
-  neg     <- sum(w_b < 0, na.rm = TRUE)
-  c(
-    boot_mean    = ifelse(present>0, mean(w_b, na.rm = TRUE), NA_real_),
-    boot_sd      = ifelse(present>1,  sd(w_b, na.rm = TRUE), NA_real_),
-    q2.5         = q_na(w_b, 0.025),
-    q97.5        = q_na(w_b, 0.975),
-    prop_nonzero = ifelse(present>0, nonzero/present, NA_real_),
-    prop_pos     = ifelse(present>0, pos/present, NA_real_),
-    prop_neg     = ifelse(present>0, neg/present, NA_real_),
-    n_present    = present,
-    n_missing    = total - present
-  )
+entropy_normalized <- function(counts) {
+  p <- counts / sum(counts)
+  p <- p[p > 0]
+  -sum(p * log(p)) / log(length(counts))
 }
 
 save_csv <- function(df, name) {
@@ -139,18 +126,24 @@ stopifnot(all(c(descriptivo_grupal, "puntaje_total") %in% names(base)))
 # Recorte por percentiles
 q_lo <- as.numeric(quantile(base$puntaje_total, probs = trim_q[1], na.rm = TRUE))
 q_hi <- as.numeric(quantile(base$puntaje_total, probs = trim_q[2], na.rm = TRUE))
-q_lo <- ceiling(q_lo); q_hi <- floor(q_hi)
-
+# Asegurar enteros y rango válido para ventanas deslizantes
+q_lo <- ceiling(q_lo)
+q_hi <- floor(q_hi)
 base_trim <- base %>% filter(puntaje_total >= q_lo, puntaje_total <= q_hi)
+
 lo <- min(base_trim$puntaje_total, na.rm = TRUE)
 hi <- max(base_trim$puntaje_total, na.rm = TRUE)
-message(sprintf("Rango IGI recortado: [%d, %d] (trim %.0f–%.0f%%)", lo, hi, trim_q[1]*100, trim_q[2]*100))
+message(sprintf("Rango IGI recortado: [%d, %d] (P10-P90)", lo, hi))
 
 # --------------------- Estabilidad por (w, k) --------------------------
 stability_for_k <- function(k) {
+  # Ventanas deslizantes (en serie, como pediste)
   start_vals <- seq(from = lo, to = hi - w + 1, by = 1)
   
-  # Acumulador para CSV maestro de ENLACES (todas las ventanas)
+  # Contenedores agregados (por (w,k), todas las ventanas)
+  agg_varstab <- list()
+  agg_partstab <- list()
+  agg_coassign <- list()
   agg_edges_all <- list()
   
   # Bucle SECUENCIAL por ventana
@@ -193,8 +186,9 @@ stability_for_k <- function(k) {
     rep_list <- foreach(b = 1:B,
                         .packages = c("bootnet","dplyr"),
                         .export   = c("sub","clusters","descriptivo_grupal",
-                                      "drop_zero_variance")) %dopar% {
+                                      "drop_zero_variance","strength_from_graph")) %dopar% {
                                         W_list  <- vector("list", k_sub)
+                                        S_vecs  <- vector("list", k_sub)
                                         for (i in seq_along(clusters)) {
                                           cc <- clusters[i]
                                           sub_cc <- dplyr::filter(sub, sub_cluster == cc)
@@ -204,8 +198,9 @@ stability_for_k <- function(k) {
                                           dat_est <- dv$df
                                           fit_i <- bootnet::estimateNetwork(dat_est, default = "IsingFit", tuning = 0.25)
                                           W_list[[i]] <- fit_i$graph
+                                          S_vecs[[i]] <- strength_from_graph(fit_i$graph, all_items = colnames(dat_b))
                                         }
-                                        list(W_list = W_list)
+                                        list(W_list = W_list, S_list = S_vecs)
                                       }
     
     time_fin <- Sys.time()
@@ -213,55 +208,146 @@ stability_for_k <- function(k) {
                     w, k, window_id, B, as.character(difftime(time_fin, time_init))))
     try(parallel::stopCluster(cl), silent = TRUE)
     
-    # --- Grafos por subred ---
+    # --- Fuerzas (B x p) y grafos por subred ---
+    S_list <- vector("list", length = length(clusters))
     W_boot <- vector("list", length = length(clusters))
-    names(W_boot) <- paste0("subred_", seq_along(clusters))
+    names(S_list) <- names(W_boot) <- paste0("subred_", seq_along(clusters))
+    
     for (i in seq_along(clusters)) {
+      S_mat <- t(vapply(rep_list, function(rr) rr$S_list[[i]][items], numeric(length(items))))
+      colnames(S_mat) <- items
       W_boot[[i]] <- lapply(rep_list, function(rr) rr$W_list[[i]])
+      S_list[[i]] <- S_mat
     }
     
-    # --- Para CADA subred: construir tabla de TODAS las aristas con stats bootstrap ---
+    # --- Asignación de referencia (argmax de fuerza) ---
+    assign_ref <- assign_items_by_strength(models_ref)
+    ref_labels <- assign_ref$group
+    names(ref_labels) <- assign_ref$Variable
+    items_ord <- assign_ref$Variable
+    p <- length(items_ord)
+    
+    # --- Ensamblaje de asignaciones (FORK, por réplica) ---
+    cl <- makeCluster(n_cores, type = cluster_type)
+    registerDoParallel(cl)
+    time_init <- Sys.time()
+    
+    assignments_mat <- foreach(b = 1:B, .combine = "cbind",
+                               .packages = c("dplyr"),
+                               .export   = c("S_list","items_ord","k")) %dopar% {
+                                 Sb <- vapply(S_list, function(S) S[b, ], numeric(length(items_ord)))
+                                 as.integer(max.col(Sb, ties.method = "first"))
+                               }
+    
+    time_fin <- Sys.time()
+    message(sprintf("[w=%d, k=%d, %s] Ensamblaje de asignaciones (B=%d) en %s",
+                    w, k, window_id, B, as.character(difftime(time_fin, time_init))))
+    try(parallel::stopCluster(cl), silent = TRUE)
+    colnames(assignments_mat) <- paste0("b", seq_len(B))
+    rownames(assignments_mat) <- items_ord
+    
+    # --- Métricas por ventana ---
+    p_hat <- rowMeans(assignments_mat == ref_labels)
+    ent <- apply(assignments_mat, 1, function(v) {
+      tabulate(v, nbins = k) |> entropy_normalized()
+    })
+    n_groups_var <- apply(assignments_mat, 1, function(v) length(unique(v)))
+    
+    coassign <- matrix(0, nrow = p, ncol = p, dimnames = list(items_ord, items_ord))
+    for (b in seq_len(B)) {
+      g <- assignments_mat[, b]
+      coassign <- coassign + outer(g, g, FUN = "==")
+    }
+    coassign <- coassign / B
+    
+    ARI_vec <- sapply(seq_len(B), function(b) adjustedRandIndex(ref_labels, assignments_mat[, b]))
+    ARI_mean <- mean(ARI_vec)
+    ARI_ci   <- as.numeric(quantile(ARI_vec, probs = c(0.025, 0.975), names = FALSE))
+    
+    # --- Acumular CSV (por ventana) ---
+    agg_varstab[[window_id]] <- tibble(
+      window_start = sv, window_end = ev, window_id = window_id,
+      Variable     = items_ord,
+      ref_group    = ref_labels,
+      p_hat        = p_hat,
+      entropy      = ent,
+      n_groups     = n_groups_var
+    )
+    
+    agg_partstab[[window_id]] <- tibble(
+      w = w, k = k, B = B,
+      window_start = sv, window_end = ev, window_id = window_id,
+      ARI_mean = ARI_mean,
+      ARI_q025 = ARI_ci[1],
+      ARI_q975 = ARI_ci[2]
+    )
+    
+    coassign_df <- as.data.frame(coassign) %>%
+      mutate(window_start = sv, window_end = ev, window_id = window_id,
+             .before = 1) %>%
+      mutate(Variable = rownames(coassign), .before = 1)
+    agg_coassign[[window_id]] <- coassign_df
+    
+    # --- Estabilidad de aristas (top-25 por subred) para el GRAN PDF ---
+    edge_panel_list <- list()
     for (i in seq_along(clusters)) {
       W_ref <- models_ref[[i]]$graph
       rn <- rownames(W_ref); if (is.null(rn)) rn <- paste0("V", seq_len(nrow(W_ref)))
-      
       ut <- upper.tri(W_ref, diag = FALSE)
       idx_pairs <- which(ut, arr.ind = TRUE)
       edges_ref <- tibble(
-        ii = idx_pairs[,1],
-        jj = idx_pairs[,2],
+        i = idx_pairs[,1],
+        j = idx_pairs[,2],
         n1 = rn[idx_pairs[,1]],
         n2 = rn[idx_pairs[,2]],
-        w_ref = as.numeric(W_ref[ut])
+        w_ref = W_ref[ut]
       ) %>%
-        mutate(n1s = pmin(n1, n2),
-               n2s = pmax(n1, n2),
-               w_ref_abs = abs(w_ref))
+        mutate(n1s = pmin(n1, n2), n2s = pmax(n1, n2),
+               w_ref_abs = abs(w_ref)) %>%
+        arrange(desc(w_ref_abs)) %>%
+        slice(1:min(25, n()))  # top-25 por |peso_ref|
       
-      # Stats bootstrap por arista (tolerando NAs cuando falten nodos en réplicas)
-      stats_mat <- t(mapply(function(a, b) edge_boot_stats(W_boot[[i]], a, b),
-                            edges_ref$n1, edges_ref$n2))
-      stats_df <- as.data.frame(stats_mat)
-      
-      edges_full <- bind_cols(
-        tibble(
-          w = w, k = k, B = B,
-          window_start = sv, window_end = ev, window_id = window_id,
-          subred = paste0("Subred ", i)
-        ),
-        edges_ref %>% select(n1, n2, w_ref, w_ref_abs),
-        stats_df
-      )
-      
-      # Guardar para CSV maestro
-      agg_edges_all[[paste(window_id, i, sep = "_")]] <- edges_full
+      Ws_i <- W_boot[[i]]
+      # Cuantiles ignorando réplicas donde la arista no existe
+      q_na <- function(x, prob) {
+        if (all(is.na(x))) return(NA_real_)
+        as.numeric(stats::quantile(x, prob, na.rm = TRUE, names = FALSE))
+      }
+      get_quant_by_names <- function(n1, n2) {
+        w_b <- vapply(Ws_i, function(Wb) {
+          rn <- rownames(Wb); cn <- colnames(Wb)
+          if (is.null(rn)) rn <- colnames(Wb)
+          if (is.null(cn)) cn <- rownames(Wb)
+          if (!(n1 %in% rn && n2 %in% cn)) return(NA_real_)
+          as.numeric(Wb[n1, n2])
+        }, numeric(1))
+        c(lo = q_na(w_b, 0.025),
+          hi = q_na(w_b, 0.975))
+      }
+      Q <- t(mapply(get_quant_by_names, edges_ref$n1, edges_ref$n2))
+      edges_plot <- dplyr::bind_cols(edges_ref, as.data.frame(Q))
+      edges_plot$subred <- paste0("Subred ", i)
+      edges_plot$window_id <- window_id
+      edges_plot$window_start <- sv
+      edges_plot$window_end   <- ev
+      edge_panel_list[[i]] <- edges_plot
     }
+    edges_all <- bind_rows(edge_panel_list)
+    agg_edges_all[[window_id]] <- edges_all
   } # fin loop ventanas
   
-  # ------------------ Guardar CSV maestro de ENLACES por (w,k) ---------
-  if (length(agg_edges_all)) {
-    edges_all_k <- bind_rows(agg_edges_all)
-    save_csv(edges_all_k, sprintf("edge_stability_w%d_k%d.csv", w, k))
+  # ------------------ Guardar CSV agregados por (w,k) ------------------
+  if (length(agg_varstab)) {
+    varstab_all <- bind_rows(agg_varstab)
+    save_csv(varstab_all, sprintf("variable_stability_w%d_k%d.csv", w, k))
+  }
+  if (length(agg_partstab)) {
+    partstab_all <- bind_rows(agg_partstab)
+    save_csv(partstab_all, sprintf("partition_stability_w%d_k%d.csv", w, k))
+  }
+  if (length(agg_coassign)) {
+    coassign_all <- bind_rows(agg_coassign)
+    save_csv(coassign_all, sprintf("coassign_w%d_k%d.csv", w, k))
   }
   
   # ------------------ GRAN PDF: todas las ventanas por (w,k) -----------
@@ -275,16 +361,9 @@ stability_for_k <- function(k) {
       pull(window_id)
     edges_all_k$window_id <- factor(edges_all_k$window_id, levels = win_levels)
     
-    # Para PLOT: quedarnos con TOP-25 por subred y ventana (por |w_ref|)
-    edges_plot_k <- edges_all_k %>%
-      group_by(window_id, subred) %>%
-      arrange(desc(w_ref_abs), .by_group = TRUE) %>%
-      slice_head(n = 25) %>%
-      ungroup()
-    
     # Paginación automática si hay muchas ventanas
     ncols_per_page <- 12
-    pages <- split(levels(edges_all_k$window_id), ceiling(seq_along(levels(edges_all_k$window_id)) / ncols_per_page))
+    pages <- split(win_levels, ceiling(seq_along(win_levels) / ncols_per_page))
     
     pdf_path <- file.path(out_dir, sprintf("edge_stability_w%d_k%d.pdf", w, k))
     grDevices::pdf(pdf_path, width = max(10, 2.6 * min(ncols_per_page, length(win_levels))), height = 10)
@@ -292,18 +371,18 @@ stability_for_k <- function(k) {
     
     for (pg in seq_along(pages)) {
       cols <- pages[[pg]]
-      dat_pg <- edges_plot_k %>% filter(window_id %in% cols)
+      dat_pg <- edges_all_k %>% filter(window_id %in% cols)
       
       p_edges <- ggplot(dat_pg, aes(x = w_ref, y = reorder(paste(n1, "—", n2), w_ref_abs))) +
-        geom_segment(aes(x = q2.5, xend = q97.5, yend = reorder(paste(n1, "—", n2), w_ref_abs)),
+        geom_segment(aes(x = lo, xend = hi, yend = reorder(paste(n1, "—", n2), w_ref_abs)),
                      alpha = 0.6, na.rm = TRUE) +
         geom_vline(xintercept = 0, linetype = "dashed", color = "grey60") +
         geom_point(color = "red", size = 0.8) +
         facet_grid(rows = vars(subred), cols = vars(window_id), scales = "free_y") +
         labs(x = "Peso de arista (ref y CI 2.5–97.5% bootstrap)",
              y = "Aristas (top-25 por |peso_ref|)",
-             title = sprintf("Estabilidad de aristas — w=%d, k=%d (ventanas en [%d,%d], trim %.0f–%.0f%%)",
-                             w, k, lo, hi, trim_q[1]*100, trim_q[2]*100)) +
+             title = sprintf("Estabilidad de aristas — w=%d, k=%d (ventanas en [%d,%d], trim %d–%d%%)",
+                             w, k, lo, hi, round(trim_q[1]*100), round(trim_q[2]*100))) +
         theme_minimal(base_size = 9) +
         theme(strip.text.y = element_text(face = "bold"))
       
@@ -316,7 +395,7 @@ stability_for_k <- function(k) {
   invisible(TRUE)
 }
 
-# ------------------------- Ejecutar -----------------------------------
+# ------------------------- Ejecutar -------------------------------------------
 time_init_all <- Sys.time()
 for (k in k_values) {
   try(stability_for_k(k), silent = FALSE)
