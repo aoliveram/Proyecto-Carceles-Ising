@@ -29,7 +29,7 @@ set.seed(123)
 
 # Entradas / Salidas base
 input_csv      <- "psy_net_files/base_igi_bin_1.csv"
-root_out_dir <- "psy-net-window-sensitivity"  
+root_out_dir   <- "psy-net-window-sensitivity"  
 
 # Parámetros
 window_sizes          <- 3:10
@@ -509,3 +509,40 @@ if (use_parallel) try(parallel::stopCluster(cl), silent = TRUE)
 time_fin_all <- Sys.time()
 time_tot_all <- time_fin_all - time_init_all
 print(time_tot_all)
+
+# ----------------------------------------------------------------------------
+# Resumen cross-window combinado: una sola tabla con k y distance en filas,
+# y columnas por ventana 'w=3','w=4',... con la media de Pearson por (k,w,distance)
+# ----------------------------------------------------------------------------
+
+root_out_dir   <- "psy-net-window-sensitivity"
+csv_files <- list.files(root_out_dir, pattern = "^optimal_k_grid_by_window_w\\d+\\.csv$", full.names = TRUE)
+
+kgrid_all <- purrr::map_dfr(csv_files, ~{
+  df <- readr::read_csv(.x, show_col_types = FALSE)
+  w_infer <- as.integer(stringr::str_match(basename(.x), "w(\\d+)")[,2])
+  dplyr::mutate(df, w = w_infer)
+})
+
+summary_tbl <- kgrid_all %>%
+  dplyr::filter(!is.na(mean_pears_cor)) %>%
+  dplyr::group_by(distance, w, k) %>%
+  dplyr::summarise(avg_mean_pears_cor = mean(mean_pears_cor, na.rm = TRUE), .groups = "drop")
+
+wide_tbl <- summary_tbl %>%
+  dplyr::mutate(w = as.integer(w)) %>%
+  dplyr::arrange(k, distance, w) %>%
+  tidyr::pivot_wider(
+    id_cols = c(k, distance),
+    names_from = w,
+    values_from = avg_mean_pears_cor,
+    names_prefix = "w="
+  ) %>%
+  dplyr::arrange(k, distance)
+
+print(wide_tbl)
+
+out_path <- file.path(root_out_dir, "mean_corr_table_binary_vs_jaccard.csv")
+readr::write_csv(wide_tbl, out_path)
+message(sprintf("Guardado (binary vs jaccard): %s", out_path))
+
