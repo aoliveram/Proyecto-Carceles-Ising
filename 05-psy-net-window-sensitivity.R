@@ -593,7 +593,62 @@ if (length(w_cols) > 0) {
   wide_tbl_p2575 <- wide_tbl_p2575 %>% dplyr::mutate(binary_better_share = NA_real_)
 }
 
+print(wide_tbl_p2575)
+
 out_path_p2575 <- file.path(root_out_dir, "mean_corr_table_binary_vs_jaccard_P25-P75.csv")
 readr::write_csv(wide_tbl_p2575, out_path_p2575)
 message(sprintf("Guardado (binary vs jaccard, P25–P75): %s", out_path_p2575))
+
+# --------------------------------------------------------------------------
+# Nueva tabla seleccionada (P25–P75, w=5): ventanas [13,17], [16,20], [19,23]
+# --------------------------------------------------------------------------
+
+selected_win <- kgrid_all %>%
+  dplyr::filter(!is.na(mean_pears_cor)) %>%
+  dplyr::filter(w == 5) %>%
+  dplyr::filter(
+    (start_val == 13 & end_val == 17) |
+    (start_val == 16 & end_val == 20) |
+    (start_val == 19 & end_val == 23)
+  ) %>%
+  dplyr::mutate(window_id = paste0("[", start_val, ",", end_val, "]"))
+
+sel_summary <- selected_win %>%
+  dplyr::group_by(distance, k, window_id) %>%
+  dplyr::summarise(avg_mean_pears_cor = mean(mean_pears_cor, na.rm = TRUE), .groups = "drop")
+
+wide_sel <- sel_summary %>%
+  tidyr::pivot_wider(
+    id_cols   = c(k, distance),
+    names_from = window_id,
+    values_from = avg_mean_pears_cor,
+    names_prefix = "win="
+  ) %>%
+  dplyr::arrange(k, distance)
+
+# Columna binary_better_share: proporción de ventanas en que binary<jaccard por k
+wide_bin <- wide_sel %>% dplyr::filter(distance == "binary") %>% dplyr::select(-distance)
+wide_jac <- wide_sel %>% dplyr::filter(distance == "jaccard") %>% dplyr::select(-distance)
+
+ks_common <- intersect(wide_bin$k, wide_jac$k)
+wide_bin <- dplyr::filter(wide_bin, k %in% ks_common)
+wide_jac <- dplyr::filter(wide_jac, k %in% ks_common)
+
+win_cols <- setdiff(intersect(names(wide_bin), names(wide_jac)), c("k"))
+if (length(win_cols) > 0) {
+  comp_mat <- as.data.frame(wide_bin[, win_cols, drop = FALSE]) < as.data.frame(wide_jac[, win_cols, drop = FALSE])
+  share_vec <- rowMeans(comp_mat, na.rm = TRUE)
+  share_tbl <- tibble::tibble(k = wide_bin$k, binary_better_share = as.numeric(share_vec))
+  wide_sel <- wide_sel %>%
+    dplyr::left_join(share_tbl, by = "k") %>%
+    dplyr::mutate(binary_better_share = ifelse(distance == "binary", binary_better_share, NA_real_))
+} else {
+  wide_sel <- wide_sel %>% dplyr::mutate(binary_better_share = NA_real_)
+}
+
+print(wide_sel)
+
+out_sel <- file.path(root_out_dir, "mean_corr_table_binary_vs_jaccard_P25-P75_selected_windows.csv")
+readr::write_csv(wide_sel, out_sel)
+message(sprintf("Guardado (binary vs jaccard, P25–P75 ventanas seleccionadas): %s", out_sel))
 
