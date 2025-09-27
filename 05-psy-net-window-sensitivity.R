@@ -542,7 +542,58 @@ wide_tbl <- summary_tbl %>%
 
 print(wide_tbl)
 
-out_path <- file.path(root_out_dir, "mean_corr_table_binary_vs_jaccard.csv")
+out_path <- file.path(root_out_dir, "mean_corr_table_binary_vs_jaccard_all.csv")
 readr::write_csv(wide_tbl, out_path)
 message(sprintf("Guardado (binary vs jaccard): %s", out_path))
+
+# --------------------------------------------------------------------------
+# Nueva tabla enfocada en IGI P25–P75: start_val >= 13 y end_val <= 23
+# Además: columna 'binary_better_share' por k = (#w donde binary<jaccard) / (#w totales)
+# --------------------------------------------------------------------------
+
+kgrid_p2575 <- kgrid_all %>%
+dplyr::filter(!is.na(mean_pears_cor)) %>%
+dplyr::filter(start_val >= 13, end_val <= 23)
+
+summary_p2575 <- kgrid_p2575 %>%
+  dplyr::group_by(distance, w, k) %>%
+  dplyr::summarise(avg_mean_pears_cor = mean(mean_pears_cor, na.rm = TRUE), .groups = "drop")
+
+wide_tbl_p2575 <- summary_p2575 %>%
+  dplyr::mutate(w = as.integer(w)) %>%
+  dplyr::arrange(k, distance, w) %>%
+  tidyr::pivot_wider(
+    id_cols = c(k, distance),
+    names_from = w,
+    values_from = avg_mean_pears_cor,
+    names_prefix = "w="
+  ) %>%
+  dplyr::arrange(k, distance)
+
+# Calcular binary_better_share por k comparando columnas w=*
+wide_bin <- wide_tbl_p2575 %>% dplyr::filter(distance == "binary") %>% dplyr::select(-distance)
+wide_jac <- wide_tbl_p2575 %>% dplyr::filter(distance == "jaccard") %>% dplyr::select(-distance)
+
+# Asegurar mismo conjunto de k en ambos
+ks_common <- intersect(wide_bin$k, wide_jac$k)
+wide_bin <- dplyr::filter(wide_bin, k %in% ks_common)
+wide_jac <- dplyr::filter(wide_jac, k %in% ks_common)
+
+# Identificar columnas 'w='
+w_cols <- setdiff(intersect(names(wide_bin), names(wide_jac)), c("k"))
+if (length(w_cols) > 0) {
+  comp_mat <- as.data.frame(wide_bin[, w_cols, drop = FALSE]) < as.data.frame(wide_jac[, w_cols, drop = FALSE])
+  # proporción por fila (k)
+  share_vec <- rowMeans(comp_mat, na.rm = TRUE)
+  share_tbl <- tibble::tibble(k = wide_bin$k, binary_better_share = as.numeric(share_vec))
+  wide_tbl_p2575 <- wide_tbl_p2575 %>%
+    dplyr::left_join(share_tbl, by = "k") %>%
+    dplyr::mutate(binary_better_share = ifelse(distance == "binary", binary_better_share, NA_real_))
+} else {
+  wide_tbl_p2575 <- wide_tbl_p2575 %>% dplyr::mutate(binary_better_share = NA_real_)
+}
+
+out_path_p2575 <- file.path(root_out_dir, "mean_corr_table_binary_vs_jaccard_P25-P75.csv")
+readr::write_csv(wide_tbl_p2575, out_path_p2575)
+message(sprintf("Guardado (binary vs jaccard, P25–P75): %s", out_path_p2575))
 
